@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Indicateurs">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2F4F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A1220" media="(prefers-color-scheme: dark)">
+<title>Indicateurs Worldline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a field notebook. Each indicator is a labelled unit tag (L, kWh, kg, km) with its own colour; the unit colours are the only loud thing. */
+:root{
+  --bg:#F2F4F8; --surface:#FFFFFF; --ink:#10213F; --muted:#586884; --line:#DAE0EA;
+  --uL:#B45F06; --ukWh:#2551D9; --ukg:#0B8573; --ukm:#7442C8; --unb:#B8336A;
+  --good:#17714B; --good-bg:#E3F4EB; --bad:#B42323; --bad-bg:#FBE7E7; --warn:#8A5A00; --warn-bg:#FFF3D6;
+  --display:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1220; --surface:#131F36; --ink:#E8EEF9; --muted:#9AA9C5; --line:#26385C;
+    --uL:#FFB454; --ukWh:#8AA8FF; --ukg:#4FD6BF; --ukm:#B997FF; --unb:#FF8FBF;
+    --good:#5FD39A; --good-bg:#12302A; --bad:#FF8B8B; --bad-bg:#3A1A22; --warn:#FFC966; --warn-bg:#3A2D10;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1220; --surface:#131F36; --ink:#E8EEF9; --muted:#9AA9C5; --line:#26385C;
+  --uL:#FFB454; --ukWh:#8AA8FF; --ukg:#4FD6BF; --ukm:#B997FF; --unb:#FF8FBF;
+  --good:#5FD39A; --good-bg:#12302A; --bad:#FF8B8B; --bad-bg:#3A1A22; --warn:#FFC966; --warn-bg:#3A2D10;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ukWh);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+p{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+#app{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px calc(92px + env(safe-area-inset-bottom,0px))}
+.stack{display:grid;gap:14px}
+.gap-s{display:grid;gap:8px}
+
+/* Unit colours */
+.u-L{--u:var(--uL)} .u-kWh{--u:var(--ukWh)} .u-kg{--u:var(--ukg)} .u-km{--u:var(--ukm)} .u-nb{--u:var(--unb)}
+.chip{display:inline-flex;align-items:center;justify-content:center;min-width:40px;padding:3px 9px;border-radius:7px;font-family:var(--mono);font-weight:600;font-size:13px;line-height:1.3;color:var(--u);background:color-mix(in srgb,var(--u) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--u) 40%,var(--surface))}
+.chip.big{font-size:20px;padding:6px 14px;border-radius:10px}
+.pill{display:inline-flex;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.ico{width:44px;height:44px;color:var(--ink);--acc:var(--u,var(--ukWh));flex:none}
+.a{fill:var(--acc);stroke:none}
+.at{fill:var(--acc);fill-opacity:.16}
+.ui{width:24px;height:24px;flex:none}
+
+/* Home / header */
+.hero h1{font-size:clamp(30px,8.6vw,40px);line-height:1.04;font-weight:800;letter-spacing:-.015em;margin:0 0 8px;font-variation-settings:"opsz" 60}
+.hero .lede{color:var(--muted);max-width:42ch}
+.unitstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0 6px}
+.unitstrip div{padding:12px 6px;border-radius:12px;text-align:center;background:color-mix(in srgb,var(--u) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--u) 35%,var(--surface))}
+.unitstrip b{display:block;font-family:var(--mono);font-size:19px;color:var(--u)}
+.unitstrip span{display:block;font-size:11.5px;color:var(--muted);line-height:1.2;margin-top:2px}
+.sec{font-family:var(--mono);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.progress{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.progress div{padding:12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.progress b{font-family:var(--mono);font-size:20px;display:block}
+.progress span{font-size:12px;color:var(--muted)}
+
+/* Lists */
+.list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.list li+li{border-top:1px solid var(--line)}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;width:100%;min-height:68px;padding:10px 14px;background:none;border:0;text-align:left}
+.item:active{background:var(--bg)}
+.item .t{font-family:var(--display);font-weight:700;line-height:1.2}
+.item .s{font-size:13px;color:var(--muted);line-height:1.3;margin-top:2px}
+.item .go{color:var(--muted);width:18px;height:18px}
+.item.done .t::after{content:" ✓";color:var(--good)}
+.num{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--bg);font-family:var(--mono);font-weight:600}
+
+/* Filters */
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.f{flex:none;min-height:40px;padding:0 14px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-weight:600;font-size:14px;color:var(--muted)}
+.f[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Page header */
+.back{display:inline-flex;align-items:center;gap:2px;min-height:44px;padding:0 10px 0 0;margin-left:-4px;background:none;border:0;font-weight:700;color:var(--muted)}
+.back .ui{width:20px;height:20px}
+.page h1{font-size:30px;line-height:1.08;font-weight:800;letter-spacing:-.01em}
+.page .sub{color:var(--muted);margin-top:4px}
+
+/* KPI detail */
+.kpihero{display:flex;align-items:center;gap:16px;padding:18px;border-radius:20px;background:color-mix(in srgb,var(--u) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--u) 32%,var(--surface))}
+.kpihero .ico{width:96px;height:96px}
+.kpihero .meta{display:grid;gap:8px;justify-items:start}
+.quote{font-family:var(--display);font-size:19px;line-height:1.3;font-weight:600;text-wrap:pretty}
+.blk h2{font-size:13px;font-family:var(--mono);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
+.blk p{text-wrap:pretty}
+.callout{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:14px;border-radius:14px}
+.callout.warn{background:var(--warn-bg);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 40%,var(--surface))}
+.callout.warn .ui{color:var(--warn)}
+.callout.reflex{background:color-mix(in srgb,var(--ukWh) 11%,var(--surface));border:1px solid color-mix(in srgb,var(--ukWh) 35%,var(--surface))}
+.callout.reflex .ui{color:var(--ukWh)}
+.callout h3{font-size:14px;margin-bottom:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.link{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 12px 6px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-weight:600;font-size:14px;text-align:left}
+.link .ico{width:28px;height:28px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;padding:12px 18px;border-radius:14px;border:1.5px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--display);font-weight:700;font-size:16px}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.on{background:var(--good-bg);color:var(--good);border-color:var(--good)}
+.btn:active{transform:scale(.99)}
+
+/* Fake document */
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:0 1px 0 var(--line),0 6px 14px -10px rgba(16,33,63,.35);position:relative;overflow:hidden}
+.doc::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 14px)}
+.doc header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:16px 14px 8px;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.doc header em{font-style:normal;border:1px dashed var(--line);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.drow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 14px;font-family:var(--mono);font-size:13px;border-top:1px dotted var(--line)}
+.drow span:first-child{color:var(--muted)}
+.drow span:last-child{text-align:right;font-weight:500}
+.drow.hi{padding-bottom:22px;background:color-mix(in srgb,var(--u) 13%,var(--surface));border-top:1px solid color-mix(in srgb,var(--u) 40%,var(--surface));border-bottom:1px solid color-mix(in srgb,var(--u) 40%,var(--surface));position:relative}
+.drow.hi span:last-child{color:var(--u);font-weight:600}
+.drow.hi::after{content:"à saisir";position:absolute;right:14px;bottom:3px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--u);font-family:var(--mono);font-weight:600}
+.dnote{padding:10px 14px 12px;font-size:12.5px;color:var(--muted)}
+.dpad{height:12px}
+
+/* Lessons */
+.lesson{display:grid;gap:16px}
+.lesson h2{font-size:21px;line-height:1.15;font-weight:800}
+.lesson p{text-wrap:pretty}
+.lesson ul,.lesson ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px}
+.fig svg{display:block;width:100%;height:auto}
+.fig figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
+.fig text{font-family:var(--body);fill:var(--ink)}
+.fig .m{font-family:var(--mono)}
+.fig .mu{fill:var(--muted)}
+.eq{display:grid;gap:8px}
+.eq>div{padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.eq .op{background:none;border:0;padding:0;text-align:center;font-family:var(--mono);font-size:22px;color:var(--muted);line-height:1}
+.eq.key>div:first-child{border-color:var(--ukWh);background:color-mix(in srgb,var(--ukWh) 9%,var(--surface))}
+.eq b{font-family:var(--display)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:table}
+.tbl th,.tbl td{padding:9px 12px;text-align:left;vertical-align:top;border-top:1px solid var(--line)}
+.tbl tr:first-child th,.tbl tr:first-child td{border-top:0}
+.tbl th{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--bg)}
+.bad{color:var(--bad);font-weight:700}
+.ok{color:var(--good);font-weight:700}
+.steps{counter-reset:s;list-style:none;padding:0!important;display:grid;gap:8px!important}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--ink);color:var(--bg);font-family:var(--mono);font-weight:600}
+.pair{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.pair .en{font-family:var(--mono);font-weight:600}
+.pair .fr{font-family:var(--display);font-weight:800;font-size:18px}
+.pair .ar{color:var(--muted);font-size:20px}
+.pair .no{grid-column:1/-1;font-size:13px;color:var(--bad)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv>div{padding:12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.kv b{display:block;font-family:var(--display);font-size:16px}
+.kv span{font-size:13px;color:var(--muted)}
+.done-row{margin-top:6px}
+
+/* Classer */
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 14px}
+.crumbs span{font-size:12.5px;padding:3px 9px;background:var(--surface);border:1px solid var(--line);border-radius:99px;color:var(--muted)}
+.q-title{font-size:24px;line-height:1.15;font-weight:800}
+.choice{display:grid;grid-template-columns:1fr 20px;gap:12px;align-items:center;width:100%;min-height:60px;padding:12px 16px;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;font-weight:600}
+.choice:active{background:var(--bg)}
+.choice .ui{width:18px;height:18px;color:var(--muted)}
+.result{padding:20px;border-radius:20px;background:color-mix(in srgb,var(--u) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--u) 35%,var(--surface));display:grid;gap:12px;justify-items:start}
+.result .ico{width:80px;height:80px}
+.result h2{font-size:26px;line-height:1.1;font-weight:800}
+.surv .item{min-height:56px}
+
+/* Quiz */
+.mode{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;width:100%;min-height:68px;padding:10px 14px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.mode .ui{width:28px;height:28px;margin:auto}
+.mode .t{font-family:var(--display);font-weight:700}
+.mode .s{font-size:13px;color:var(--muted)}
+.mode .b{font-family:var(--mono);font-size:13px;text-align:right}
+.qtop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.count{font-family:var(--mono);font-size:14px;font-weight:600}
+.track{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:2px 0 8px}
+.track i{display:block;height:100%;background:var(--ukWh);transition:width .25s ease}
+.qctx{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 8px}
+.q{font-family:var(--display);font-size:21px;line-height:1.25;font-weight:700;text-wrap:pretty;margin:14px 0 16px;outline:none}
+.doc.sm{margin-top:4px}
+.doc.sm .drow{border-top:1px dotted var(--line);font-size:13.5px}
+.doc.sm .drow span:first-child{color:var(--ink)}
+.opts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:28px 1fr 20px;gap:12px;align-items:center;width:100%;min-height:58px;padding:12px 14px;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:14px}
+.opt .ltr{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--bg);font-family:var(--mono);font-weight:600;font-size:13px}
+.opt .mark{font-weight:800;text-align:center}
+.opt[aria-disabled="true"]{cursor:default}
+.opt.ok{border-color:var(--good);background:var(--good-bg)} .opt.ok .mark{color:var(--good)}
+.opt.ko{border-color:var(--bad);background:var(--bad-bg)} .opt.ko .mark{color:var(--bad)}
+.opt.dim{opacity:.55}
+.fb{margin-top:16px;padding:14px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--good)}
+.fb.ko{border-left-color:var(--bad)}
+.fb h3{font-size:16px;margin-bottom:4px}
+.dock{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom,0px));margin:14px -16px 0;padding:12px 16px;background:linear-gradient(to bottom,transparent,var(--bg) 40%)}
+.big{font-family:var(--mono);font-weight:600;font-size:64px;line-height:1;margin:14px 0 6px}
+.big small{font-size:28px;color:var(--muted)}
+.verdict{font-family:var(--display);font-size:22px;font-weight:800;margin-bottom:10px}
+.miss{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.miss li{padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.miss b{display:block;margin-bottom:4px;font-weight:600}
+.miss span{color:var(--good);font-weight:700}
+
+/* Glossary */
+.search{position:sticky;top:0;z-index:5;margin:0 -16px;padding:8px 16px 10px;background:var(--bg)}
+.search label{position:relative;display:block}
+.search .ui{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);width:20px;height:20px}
+.search input{width:100%;min-height:48px;padding:0 14px 0 40px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-size:16px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 14px}
+.g+ .g{border-top:1px solid var(--line)}
+.g b{font-family:var(--mono);font-weight:600;font-size:14px}
+.g span{font-family:var(--display);font-weight:600}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+
+/* Tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--surface) 90%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabbar nav{display:grid;grid-template-columns:repeat(5,1fr);max-width:560px;margin:0 auto}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:58px;padding:8px 2px 6px;background:none;border:0;color:var(--muted);font-size:11px;font-weight:700;position:relative}
+.tab .ui{width:26px;height:26px}
+.tab[aria-current="page"]{color:var(--ink)}
+.tab[aria-current="page"]::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--ukWh)}
+
+@media (prefers-reduced-motion: reduce){.track i{transition:none}.btn:active{transform:none}}
+
+/* Figures & small additions */
+.fig .bld{fill:var(--bg);stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round}
+.fig .ln{stroke:var(--ink);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fig .ar{stroke:var(--muted);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fig .tx{font-size:12.5px;font-weight:700;text-anchor:middle}
+.fig .tx2{font-size:11.5px;text-anchor:middle;fill:var(--muted)}
+.fig .tx3{font-family:var(--mono);font-size:13px;font-weight:600;text-anchor:middle}
+.fig .uL{--acc:var(--uL);color:var(--ink)} .fig .ukWh{--acc:var(--ukWh);color:var(--ink)}
+.doc.sm .drow.single{justify-content:flex-start}
+.doc.sm .drow.single span{color:var(--ink)!important;text-align:left}
+.doc.sm header{padding-top:16px}
+.hint{font-size:13px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv .chip{margin-bottom:6px}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<!-- Icônes 64×64 : trait = currentColor, accent = var(--acc) -->
+<symbol id="i-diesel" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="13" y="20" width="34" height="38" rx="5"/><path d="M20 20v-7h15l7 7"/><path d="M47 30h4v15h-4"/>
+<path class="a" d="M30 31c-5 7-8 10-8 14a8 8 0 0 0 16 0c0-4-3-7-8-14z"/></g></symbol>
+
+<symbol id="i-gas" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M32 7c3 10 15 14 15 29a15 15 0 0 1-30 0c0-8 5-12 9-17 1 4 3 6 6 8-1-7-1-14 0-20z"/>
+<path class="a" d="M32 36c3 4 7 6 7 11a7 7 0 0 1-14 0c0-5 4-7 7-11z"/></g></symbol>
+
+<symbol id="i-refrig" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="12" y="24" width="22" height="34" rx="9"/><path d="M19 24v-8h8v8"/><path d="M17 16h18"/>
+<circle class="a" cx="43" cy="22" r="3.5"/><circle class="a" cx="51" cy="30" r="4.5"/><circle class="a" cx="45" cy="40" r="3"/></g></symbol>
+
+<symbol id="i-fueloil" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="6" y="20" width="52" height="26" rx="13"/><path d="M20 46v10M44 46v10M14 56h12M38 56h12"/><path d="M32 20v-6h8"/>
+<path class="a" d="M32 26c-4 5-6 7-6 10a6 6 0 0 0 12 0c0-3-2-5-6-10z"/></g></symbol>
+
+<symbol id="i-renfueloil" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="6" y="20" width="52" height="26" rx="13"/><path d="M20 46v10M44 46v10M14 56h12M38 56h12"/><path d="M32 20v-6h8"/>
+<path class="a" d="M25 40c0-8 6-12 15-12 0 8-4 14-15 12z"/><path d="M26 40l8-7" stroke="var(--bg)" stroke-width="2"/></g></symbol>
+
+<symbol id="i-solar" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M10 44l7-22h37l-7 22z"/><path d="M13.5 33h37M26 22l-4 22M39 22l-3 22"/><path d="M32 44v10M22 54h20"/>
+<circle class="a" cx="13" cy="10" r="5"/><path d="M13 1v2M5 10H3M23 10h-2M7 4l1 1M19 4l-1 1" stroke-width="2.4"/></g></symbol>
+
+<symbol id="i-genset" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="6" y="26" width="46" height="28" rx="4"/><path d="M40 26V14h8v12"/><circle cx="44" cy="8" r="3"/><circle cx="53" cy="5" r="2.2"/>
+<path d="M12 54v4M46 54v4"/><path class="a" d="M31 31l-8 11h8l-4 9 11-13h-8z"/></g></symbol>
+
+<symbol id="i-greenplug" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<circle class="at" cx="29" cy="30" r="21"/><path d="M32 17l-9 15h8l-3 12 11-16h-8z"/>
+<path class="a" d="M38 58c-1-10 5-15 15-15 0 9-5 16-15 15z"/><path d="M40 56l8-8" stroke="var(--bg)" stroke-width="2"/></g></symbol>
+
+<symbol id="i-pylon" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path d="M32 5L20 59M32 5l12 54"/><path d="M15 18h34M20 34h24M23 46h18M26 34l12 12M38 34L26 46"/><circle class="a" cx="15" cy="18" r="3"/><circle class="a" cx="49" cy="18" r="3"/><circle class="a" cx="20" cy="34" r="3"/><circle class="a" cx="44" cy="34" r="3"/></g></symbol>
+
+<symbol id="i-district" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="34" y="14" width="24" height="34" rx="2"/><path d="M40 22h4M48 22h4M40 31h4M48 31h4M40 40h4M48 40h4"/>
+<path d="M4 56h56"/><rect class="a" x="4" y="46" width="30" height="7" rx="3.5" stroke="none"/><path d="M34 49.5h6"/>
+<path d="M12 38c-3-4 3-6 0-10M20 38c-3-4 3-6 0-10" stroke="var(--acc)"/></g></symbol>
+
+<symbol id="i-atom" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<ellipse class="at" cx="32" cy="32" rx="26" ry="10"/><ellipse class="at" cx="32" cy="32" rx="26" ry="10" transform="rotate(60 32 32)"/>
+<ellipse class="at" cx="32" cy="32" rx="26" ry="10" transform="rotate(120 32 32)"/><circle class="a" cx="32" cy="32" r="5"/></g></symbol>
+
+<symbol id="i-cooling" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="7" y="8" width="26" height="48" rx="3"/><path d="M7 22h26M7 36h26M13 15h4M13 29h4M13 43h4"/>
+<path stroke="var(--acc)" d="M48 20v28M36 27l24 14M60 27L36 41M43 18l5 4 5-4M43 50l5-4 5 4"/></g></symbol>
+
+<symbol id="i-heat" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M22 38V12a6 6 0 0 1 12 0v26a11 11 0 1 1-12 0z"/><circle class="a" cx="28" cy="46" r="5"/><path stroke="var(--acc)" d="M28 42V24"/>
+<path d="M44 16c-3-4 3-6 0-10M52 24c-3-4 3-6 0-10M44 34c-3-4 3-6 0-10" stroke="var(--acc)"/></g></symbol>
+
+<symbol id="i-steam" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="6" y="44" width="52" height="11" rx="5.5"/><path d="M26 44v-6h12v6M24 38h16"/>
+<path stroke="var(--acc)" d="M24 30c-5-5 5-8 0-14M33 28c-5-5 5-8 0-14M42 30c-5-5 5-8 0-14"/></g></symbol>
+
+<symbol id="i-selfcons" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M8 32L32 10l24 22v24H8z"/><path d="M8 32L32 10l24 22"/>
+<path stroke="var(--acc)" d="M42 46a10 10 0 1 1-3-15"/><path class="a" d="M41 24l1 9-9-1z"/><path d="M25 38l4-6h-6l4-6" stroke-width="2.4"/></g></symbol>
+
+<symbol id="i-cars" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M6 42l4-12a6 6 0 0 1 6-4h22a6 6 0 0 1 6 4l6 10a4 4 0 0 1 2 4v6H6z"/><circle cx="18" cy="52" r="5" fill="var(--bg)"/><circle cx="46" cy="52" r="5" fill="var(--bg)"/>
+<path d="M14 30h26"/><rect class="a" x="38" y="6" width="22" height="14" rx="7" stroke="none"/><path d="M44 13h10M49 8v10" stroke="var(--bg)" stroke-width="2.4"/></g></symbol>
+
+<symbol id="i-road" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<path class="at" d="M26 6L6 58h52L38 6z"/><path stroke="var(--acc)" stroke-dasharray="3 7" d="M32 10v46"/>
+<path class="a" d="M50 6a7 7 0 0 1 7 7c0 6-7 12-7 12s-7-6-7-12a7 7 0 0 1 7-7z" stroke="none"/><circle cx="50" cy="13" r="2.6" fill="var(--bg)" stroke="none"/></g></symbol>
+
+<symbol id="i-pumpD" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="10" y="8" width="30" height="46" rx="4"/><rect x="16" y="14" width="18" height="16" rx="2"/><path d="M6 54h38"/>
+<path d="M40 22h5a4 4 0 0 1 4 4v18a3 3 0 0 0 6 0V28l-5-8"/><path stroke="var(--acc)" stroke-width="3.4" d="M23 18v8h3a4 4 0 0 0 0-8z"/></g></symbol>
+
+<symbol id="i-pumpE" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="10" y="8" width="30" height="46" rx="4"/><rect x="16" y="14" width="18" height="16" rx="2"/><path d="M6 54h38"/>
+<path d="M40 22h5a4 4 0 0 1 4 4v18a3 3 0 0 0 6 0V28l-5-8"/><path stroke="var(--acc)" stroke-width="3.4" d="M29 18h-6v8h6M23 22h5"/></g></symbol>
+
+<symbol id="i-ev" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect class="at" x="10" y="8" width="30" height="46" rx="4"/><path d="M6 54h38"/><rect x="16" y="14" width="18" height="12" rx="2"/>
+<path d="M40 24h5a4 4 0 0 1 4 4v16a3 3 0 0 0 6 0V30l-5-8"/><path class="a" d="M27 29l-6 9h5l-2 7 8-10h-5z"/></g></symbol>
+
+<!-- icônes d'interface -->
+<symbol id="u-book" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7"/></g></symbol>
+<symbol id="u-cards" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="13" width="18" height="6" rx="2"/><path d="M7 7h4M7 16h4"/></g></symbol>
+<symbol id="u-route" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"/><circle cx="18" cy="19" r="2.2"/><path d="M6 7.2V12a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v-.8"/></g></symbol>
+<symbol id="u-target" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></g></symbol>
+<symbol id="u-abc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-10 4 10M4.6 13h4.8"/><path d="M14 8h4a2 2 0 0 1 0 4h-4m0 0h4.5a2.2 2.2 0 0 1 0 4.4H14z"/></g></symbol>
+<symbol id="u-shuffle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3c5 0 5 10 10 10h5M3 17h3c1.5 0 2.5-.8 3.4-2M21 7h-5c-1.5 0-2.5.8-3.4 2"/><path d="M18 4l3 3-3 3M18 14l3 3-3 3"/></g></symbol>
+<symbol id="u-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></g></symbol>
+<symbol id="u-ruler" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></g></symbol>
+<symbol id="u-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></g></symbol>
+<symbol id="u-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="u-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="u-warn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></g></symbol>
+<symbol id="u-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></g></symbol>
+<symbol id="u-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></g></symbol>
+</defs></svg>
+
+<main id="app" aria-live="polite"></main>
+<div class="tabbar"><nav id="tabs" aria-label="Navigation principale"></nav></div>
+<script>
+/* Données de l'appli : fiches des indicateurs, arbre de classement, glossaire, questions.
+   Source : Guide complet des indicateurs environnementaux Worldline (Support Q2 2026). */
+window.WL = window.WL || {};
+(function (WL) {
+
+WL.UNITS = {
+  L:   { label: "L",   long: "Litres" },
+  kWh: { label: "kWh", long: "Kilowattheures" },
+  kg:  { label: "kg",  long: "Kilogrammes" },
+  km:  { label: "km",  long: "Kilomètres" },
+  nb:  { label: "nb",  long: "Nombre de véhicules" }
+};
+
+WL.GROUPS = {
+  direct:   { label: "Énergie directe",   site: "Offices & Data Centers" },
+  indirect: { label: "Énergie indirecte", site: "Offices & Data Centers" },
+  cars:     { label: "Company Cars",      site: "Flotte de véhicules" }
+};
+
+/* ------------------------------------------------------------------ */
+/* 20 indicateurs                                                       */
+/* doc.hi = index de la ligne à saisir (-1 : aucune surlignée)          */
+/* ------------------------------------------------------------------ */
+WL.KPIS = [
+{ id: "diesel_site", grp: "direct", en: "Diesel", fr: "Gazole / diesel", unit: "L", icon: "diesel",
+  one: "Le plein du groupe électrogène de secours d'un Data Center.",
+  what: "Un combustible liquide. Dans un site ou un Data Center, il est notamment consommé par des équipements au diesel, par exemple un groupe électrogène.",
+  recog: "Mentions « Diesel », « diesel fuel », ou une livraison exprimée en litres.",
+  trap: "Ne pas confondre Diesel et Fuel Oil simplement parce que les deux sont des combustibles liquides.",
+  reflex: "Est-ce bien du diesel consommé par un équipement du site ?",
+  doc: { t: "Bon de livraison", rows: [["Fournisseur", "Station Dupont"], ["Produit", "Diesel fuel"], ["Livré à", "Data Center Nord, groupe électrogène"], ["Quantité livrée", "1 200 L"]], hi: 3 },
+  conf: ["fueloil", "diesel_car", "nonrenprod"] },
+
+{ id: "gas", grp: "direct", en: "Gas", fr: "Gaz", unit: "kWh", icon: "gas",
+  one: "La flamme de la chaudière du bâtiment, comptée en énergie.",
+  what: "Un combustible gazeux utilisé par le site. Dans le support Worldline, la ligne « Gas » est reportée en kWh.",
+  recog: "Factures ou relevés avec « Gas », « Natural Gas » ou « Gas consumption » et une consommation d'énergie.",
+  trap: "Le support attend des kWh. Si le document source n'indique que des m³, applique la méthode de conversion validée par Worldline plutôt que de saisir le volume tel quel.",
+  reflex: "Ai-je bien une consommation de gaz, et dans l'unité demandée par UL360 ?",
+  doc: { t: "Facture d'énergie", rows: [["Fournisseur", "GazFrance SA"], ["Produit", "Natural gas"], ["Période", "Janvier à mars"], ["Gas consumption", "84 300 kWh"]], hi: 3 },
+  conf: ["district", "heat", "petrol_car"] },
+
+{ id: "refrig", grp: "direct", en: "Refrigerant leaks", fr: "Fuites de fluides frigorigènes", unit: "kg", icon: "refrig",
+  one: "Le gaz qui s'échappe d'un circuit de climatisation, pesé en kilos.",
+  what: "Les fuites de gaz utilisés dans les systèmes de climatisation, de réfrigération ou de refroidissement. Worldline cite des HFC tels que R-32, R-125, R-134A, R-143A, R-152A et R-410A.",
+  recog: "Rapport de maintenance, intervention HVAC, recharge de fluide ou indication d'une fuite avec le type de gaz et une quantité en kg.",
+  trap: "Il faut renseigner les kg par type de gaz. Si le type n'est pas dans la liste, utilise « Other – quantity » et précise le gaz. Si l'information manque, vérifie auprès du building ou du Data Center management.",
+  reflex: "Quel gaz a fui, et combien de kilogrammes ?",
+  doc: { t: "Rapport de maintenance HVAC", rows: [["Équipement", "Groupe froid, salle 2"], ["Gaz", "R-410A"], ["Nature", "Fuite détectée puis réparée"], ["Quantité rechargée", "3,5 kg"]], hi: 3 },
+  conf: ["gas", "cooling"] },
+
+{ id: "fueloil", grp: "direct", en: "Fuel Oil", fr: "Fioul / mazout", unit: "L", icon: "fueloil",
+  one: "La cuve de fioul de la chaufferie.",
+  what: "Un combustible liquide distinct de l'essence. Il peut être utilisé dans certaines installations thermiques ou techniques.",
+  recog: "Mentions « Fuel oil », « Heating oil », ou livraison de fioul en litres.",
+  trap: "Fuel Oil ≠ Petrol. Dans ce guide : Petrol = essence pour véhicules ; Fuel Oil = fioul pour installation.",
+  reflex: "Le document parle-t-il d'un fioul pour une installation, et non d'un carburant automobile ?",
+  doc: { t: "Bon de livraison", rows: [["Produit", "Heating oil"], ["Destination", "Chaufferie, bâtiment B"], ["Quantité", "2 000 L"]], hi: 2 },
+  conf: ["diesel_site", "renfueloil", "petrol_car"] },
+
+{ id: "renfueloil", grp: "direct", en: "Renewable Fuel Oil", fr: "Fioul / combustible liquide renouvelable", unit: "L", icon: "renfueloil",
+  one: "La même cuve, mais avec un papier qui prouve l'origine renouvelable.",
+  what: "Une ligne distincte du Fuel Oil conventionnel, pour un combustible liquide qualifié de renouvelable selon la documentation et les règles Worldline.",
+  recog: "La preuve ou la désignation du fournisseur doit clairement permettre de justifier le caractère renouvelable.",
+  trap: "Ne classe pas un produit dans « Renewable Fuel Oil » par intuition : la qualification doit être documentée.",
+  reflex: "Ai-je un justificatif explicite du caractère renouvelable ?",
+  doc: { t: "Bon de livraison + attestation", rows: [["Produit", "Renewable heating oil"], ["Justificatif", "Attestation fournisseur (jointe)"], ["Quantité", "800 L"]], hi: 2 },
+  conf: ["fueloil"] },
+
+{ id: "renprod", grp: "direct", en: "Renewable Energy Production", fr: "Production d'énergie renouvelable", unit: "kWh", icon: "solar",
+  one: "Le compteur des panneaux solaires du toit.",
+  what: "L'énergie renouvelable produite directement par le site.",
+  recog: "Mesure ou relevé de production d'une installation renouvelable du site.",
+  trap: "Production ne signifie pas consommation : une partie de l'énergie produite peut être exportée ou ne pas être consommée sur place.",
+  reflex: "S'agit-il de ce que le site produit, et non de ce qu'il achète ?",
+  doc: { t: "Relevé de l'onduleur solaire", rows: [["Installation", "Panneaux solaires, toiture"], ["Période", "T2 2026"], ["Production totale", "13 000 kWh"]], hi: 2 },
+  conf: ["selfcons", "renelec"] },
+
+{ id: "nonrenprod", grp: "direct", en: "Non-Renewable Energy Production", fr: "Production d'énergie non renouvelable", unit: "kWh", icon: "genset",
+  one: "Ce que le groupe électrogène sort en électricité, pas ce qu'il boit en litres.",
+  what: "De l'énergie produite directement sur site à partir d'une source non renouvelable.",
+  recog: "Une donnée de production locale non renouvelable exprimée en kWh.",
+  trap: "Ne confonds pas le combustible utilisé pour produire l'énergie (par exemple des litres de diesel) avec l'énergie produite (des kWh).",
+  reflex: "Suis-je en train de reporter le combustible consommé ou l'énergie produite ?",
+  doc: { t: "Relevé du groupe électrogène", rows: [["Compteur « énergie produite »", "6 400 kWh"], ["Diesel consommé (autre ligne : Diesel)", "1 800 L"]], hi: 0 },
+  conf: ["diesel_site", "renprod"] },
+
+{ id: "renelec", grp: "indirect", en: "Renewable Electricity", fr: "Électricité renouvelable", unit: "kWh", icon: "greenplug",
+  one: "De l'électricité du réseau, avec un certificat qui prouve son origine renouvelable.",
+  what: "De l'électricité qualifiée de renouvelable selon les règles de reporting Worldline et les justificatifs disponibles.",
+  recog: "Contrat, facture, attestation ou autre justificatif qui permet de la qualifier de renouvelable.",
+  trap: "Selon le guide, on ne reporte pas comme « renewable » la simple part renouvelable d'un mix électrique qui n'est pas entièrement qualifié de renouvelable.",
+  reflex: "Ai-je la preuve qui permet de la classer comme électricité renouvelable ?",
+  doc: { t: "Facture + attestation", rows: [["Offre", "Électricité 100 % renouvelable"], ["Justificatif", "Garanties d'origine (jointes)"], ["Consommation", "310 000 kWh"]], hi: 2 },
+  conf: ["normalgrid", "renprod"] },
+
+{ id: "normalgrid", grp: "indirect", en: "Normal Grid Electricity", fr: "Électricité normale du réseau", unit: "kWh", icon: "pylon",
+  one: "La facture d'électricité classique.",
+  what: "De l'électricité achetée au réseau lorsqu'elle n'est pas reportée dans une autre catégorie spécifique prévue par Worldline.",
+  recog: "Une facture d'électricité classique exprimée en kWh.",
+  trap: "N'éclate pas toi-même le mix national en plusieurs sources si la méthodologie Worldline ne le demande pas.",
+  reflex: "La facture correspond-elle à une électricité de réseau standard ?",
+  doc: { t: "Facture d'électricité", rows: [["Fournisseur", "ElecNational"], ["Offre", "Standard"], ["Electricity consumption", "245 000 kWh"]], hi: 2 },
+  conf: ["renelec", "nuclear", "cooling"] },
+
+{ id: "district", grp: "indirect", en: "District Heating", fr: "Chauffage urbain / réseau de chaleur", unit: "kWh", icon: "district",
+  one: "Un tuyau de chaleur arrive de la ville : le site paie la chaleur livrée.",
+  what: "De la chaleur achetée à un réseau de chaleur. Le site reçoit une énergie thermique produite ailleurs.",
+  recog: "Facture avec « District heating », « district heat » ou réseau de chaleur, en kWh.",
+  trap: "À distinguer d'un site qui brûle lui-même du gaz : dans ce cas, la donnée de combustible relève de « Gas ».",
+  reflex: "Le site achète-t-il directement de la chaleur à un réseau ?",
+  doc: { t: "Facture du réseau de chaleur", rows: [["Fournisseur", "Réseau de chaleur urbain"], ["Libellé", "District heating"], ["Chaleur livrée", "96 000 kWh"]], hi: 2 },
+  conf: ["gas", "heat", "steam"] },
+
+{ id: "nuclear", grp: "indirect", en: "Nuclear Electricity", fr: "Électricité nucléaire", unit: "kWh", icon: "atom",
+  one: "Une ligne réservée à l'électricité explicitement identifiée comme nucléaire.",
+  what: "Une ligne prévue par le support pour l'électricité identifiée comme nucléaire.",
+  recog: "Un justificatif ou une donnée explicitement associée à cette catégorie dans le reporting Worldline.",
+  trap: "Ne calcule pas toi-même la part nucléaire d'un mix national sans consigne méthodologique.",
+  reflex: "La source ou l'outil identifie-t-il explicitement cette électricité comme nucléaire ?",
+  doc: { t: "Donnée de reporting (exemple de présentation)", rows: [["Catégorie", "Nuclear electricity"], ["Source", "Outil de reporting, catégorie explicite"], ["Valeur", "120 000 kWh"]], hi: 2 },
+  conf: ["normalgrid"] },
+
+{ id: "cooling", grp: "indirect", en: "Cooling Electricity", fr: "Électricité de refroidissement", unit: "kWh", icon: "cooling",
+  one: "La consommation du refroidissement, isolée par un sous-compteur.",
+  what: "Une ligne dédiée au refroidissement. Cette consommation peut être particulièrement importante dans les Data Centers.",
+  recog: "Une donnée explicitement isolée comme consommation de refroidissement dans la facture, un sous-comptage ou UL360.",
+  trap: "Le support de synthèse ne définit pas le périmètre technique détaillé. Évite de ventiler arbitrairement une facture générale : tu créerais un double comptage.",
+  reflex: "Ai-je une donnée de refroidissement réellement isolée et validée ?",
+  doc: { t: "Relevé de sous-comptage", rows: [["Sous-compteur", "Cooling, salle serveurs 1"], ["Période", "T2 2026"], ["Valeur", "410 000 kWh"]], hi: 2 },
+  conf: ["normalgrid", "refrig"] },
+
+{ id: "heat", grp: "indirect", en: "Heat Consumption", fr: "Consommation de chaleur", unit: "kWh", icon: "heat",
+  one: "L'énergie thermique reçue par le bâtiment, mesurée en kWh.",
+  what: "L'énergie thermique consommée par le site.",
+  recog: "Facture ou mesure de chaleur exprimée en kWh.",
+  trap: "À distinguer du combustible utilisé pour créer cette chaleur. Si le site achète la chaleur, on reporte l'énergie livrée. S'il brûle lui-même un combustible, ce combustible peut relever d'un KPI direct.",
+  reflex: "Suis-je en train de reporter une énergie thermique achetée ou consommée, ou un combustible ?",
+  doc: { t: "Relevé de compteur de chaleur", rows: [["Compteur", "Chaleur livrée, bâtiment A"], ["Période", "T2 2026"], ["Valeur", "54 000 kWh"]], hi: 2 },
+  conf: ["district", "gas", "steam"] },
+
+{ id: "steam", grp: "indirect", en: "Steam Consumption", fr: "Consommation de vapeur", unit: "kWh", icon: "steam",
+  one: "L'énergie de la vapeur reçue, pas le combustible du fournisseur.",
+  what: "L'énergie thermique reçue sous forme de vapeur.",
+  recog: "Facture ou mesure de vapeur convertie ou présentée en kWh selon la donnée disponible.",
+  trap: "Le KPI porte sur l'énergie de la vapeur consommée, pas nécessairement sur le combustible utilisé par le fournisseur pour la produire.",
+  reflex: "Le site reçoit-il de la vapeur comme vecteur énergétique ?",
+  doc: { t: "Facture de vapeur", rows: [["Fournisseur", "Réseau industriel"], ["Libellé", "Steam"], ["Énergie de la vapeur", "18 000 kWh"]], hi: 2 },
+  conf: ["heat", "district"] },
+
+{ id: "selfcons", grp: "indirect", en: "Consumption of Self-Generated Renewable Energy", fr: "Consommation d'énergie renouvelable autoproduite", unit: "kWh", icon: "selfcons",
+  one: "La part de ton solaire que le bâtiment consomme vraiment.",
+  what: "La part de l'énergie renouvelable produite par le site et effectivement consommée sur place.",
+  recog: "Une mesure d'autoconsommation issue d'une installation renouvelable du site.",
+  trap: "À distinguer de « Renewable Energy Production », qui est la production totale. Production et autoconsommation ne sont pas forcément égales.",
+  reflex: "Quelle part de l'énergie renouvelable produite a réellement été consommée par le site ?",
+  doc: { t: "Bilan solaire du trimestre", rows: [["Production totale", "13 000 kWh"], ["Exportée vers le réseau", "3 000 kWh"], ["Autoconsommation mesurée", "10 000 kWh"]], hi: 2 },
+  conf: ["renprod", "renelec"] },
+
+{ id: "nbcars", grp: "cars", en: "Number of cars per type", fr: "Nombre de véhicules par type", unit: "nb", icon: "cars",
+  one: "La taille et la composition du parc automobile.",
+  what: "La taille et la composition de la flotte automobile.",
+  recog: "Un fichier de flotte ou un outil de Fleet Management qui indique le nombre de véhicules par motorisation.",
+  trap: "N'additionne pas des catégories qui se chevauchent. Utilise les types définis dans UL360.",
+  reflex: "Combien de véhicules appartiennent à chaque catégorie ?",
+  doc: { t: "Extrait Fleet Management", rows: [["Diesel Vehicle", "18"], ["Petrol Vehicle", "11"], ["Hybrid Petrol", "6"], ["Plug-in Hybrid Diesel", "4"], ["Battery Electric Vehicle", "9"]], hi: -1, note: "Chaque véhicule ne compte que dans une seule catégorie." },
+  conf: ["km"] },
+
+{ id: "km", grp: "cars", en: "KM travelled", fr: "Kilomètres parcourus", unit: "km", icon: "road",
+  one: "Le compteur kilométrique de toute la flotte sur le trimestre.",
+  what: "La distance parcourue par les véhicules pendant la période de reporting.",
+  recog: "Données télématiques, rapports de flotte, loueurs ou fournisseurs.",
+  trap: "Les km sont une donnée d'activité différente des litres de carburant. Les deux peuvent servir à des contrôles de cohérence.",
+  reflex: "Quelle distance a réellement été parcourue pendant le trimestre ?",
+  doc: { t: "Rapport télématique", rows: [["Source", "Télématique de flotte"], ["Période", "T2 2026"], ["Distance totale", "318 000 km"]], hi: 2 },
+  conf: ["nbcars", "diesel_car"] },
+
+{ id: "diesel_car", grp: "cars", en: "Diesel", fr: "Gazole consommé par les véhicules", unit: "L", icon: "pumpD",
+  one: "Ce que la flotte diesel a versé dans ses réservoirs.",
+  what: "Le carburant consommé par les véhicules diesel, ou par les catégories hybrides diesel lorsque le champ UL360 correspondant le prévoit.",
+  recog: "Cartes carburant, rapports de flotte ou données fournisseur.",
+  trap: "Ne convertis pas spontanément les litres en kWh si UL360 attend des litres.",
+  reflex: "Combien de litres de gazole la flotte concernée a-t-elle consommés ?",
+  doc: { t: "Relevé de cartes carburant", rows: [["Source", "Cartes carburant"], ["Carburant", "Diesel"], ["Volume", "9 600 L"]], hi: 2 },
+  conf: ["diesel_site", "petrol_car"] },
+
+{ id: "petrol_car", grp: "cars", en: "Petrol", fr: "Essence consommée par les véhicules", unit: "L", icon: "pumpE",
+  one: "Petrol, c'est l'essence de la station-service, pas le pétrole.",
+  what: "Le carburant consommé par les véhicules essence ou par certaines catégories hybrides essence.",
+  recog: "Cartes carburant, rapports de flotte ou données fournisseur avec « Petrol » ou « Gasoline ».",
+  trap: "Petrol = essence. C'est le piège linguistique principal à éviter.",
+  reflex: "S'agit-il bien d'essence ?",
+  doc: { t: "Relevé de cartes carburant", rows: [["Source", "Cartes carburant"], ["Carburant", "Gasoline (Petrol)"], ["Volume", "3 400 L"]], hi: 2 },
+  conf: ["fueloil", "diesel_car"] },
+
+{ id: "ev", grp: "cars", en: "Electricity Consumption", fr: "Consommation d'électricité des véhicules électriques", unit: "kWh", icon: "ev",
+  one: "L'électricité des bornes de recharge, pas des litres.",
+  what: "L'électricité consommée pour recharger les véhicules électriques, telle que reportée dans les sources de flotte ou UL360.",
+  recog: "Données de recharge, d'un opérateur, d'un gestionnaire de flotte ou d'un outil dédié.",
+  trap: "Un véhicule 100 % électrique ne consomme pas de litres d'essence ou de diesel.",
+  reflex: "Quelle quantité d'électricité a été utilisée pour les véhicules électriques ?",
+  doc: { t: "Relevé de l'opérateur de recharge", rows: [["Source", "Opérateur de recharge"], ["Période", "T2 2026"], ["Énergie rechargée", "15 800 kWh"]], hi: 2 },
+  conf: ["normalgrid", "petrol_car"] }
+];
+
+WL.KPI = {};
+WL.KPIS.forEach(function (k) { WL.KPI[k.id] = k; });
+
+/* Libellé complet utilisé dans les quiz */
+WL.lab = function (id) {
+  var k = WL.KPI[id];
+  var pre = k.grp === "cars" ? "Company Cars · " : "";
+  return pre + k.en + " (" + (k.unit === "nb" ? "nombre" : k.unit) + ")";
+};
+
+/* Motorisations visibles dans UL360 */
+WL.VEHICLES = [
+  ["Battery Electric Vehicle", "Véhicule électrique à batterie", "Fonctionne grâce à une batterie rechargeable."],
+  ["Hydrogen / Fuel Cell Vehicle", "Véhicule à hydrogène / pile à combustible", "Utilise de l'hydrogène pour produire de l'électricité à bord."],
+  ["Diesel Vehicle", "Véhicule diesel", "Moteur thermique alimenté au gazole."],
+  ["Petrol Vehicle", "Véhicule essence", "Moteur thermique alimenté à l'essence."],
+  ["Hybrid Petrol", "Hybride essence", "Moteur essence + assistance électrique."],
+  ["Plug-in Hybrid Diesel", "Hybride rechargeable diesel", "Diesel + batterie rechargeable."],
+  ["Plug-in Hybrid Petrol", "Hybride rechargeable essence", "Essence + batterie rechargeable."]
+];
+
+/* ------------------------------------------------------------------ */
+/* Arbre « Classer une donnée »                                         */
+/* ------------------------------------------------------------------ */
+WL.TREE = {
+  start: { q: "Qu'as-tu sous les yeux ?", opts: [
+    ["Un combustible brûlé sur place (gaz, gazole, fioul)", "fuel"],
+    ["Un gaz de climatisation qui fuit", { kpi: "refrig" }],
+    ["De l'électricité achetée", "elec"],
+    ["De la chaleur ou de la vapeur reçue", "heat"],
+    ["De l'énergie produite par le site lui-même", "prod"],
+    ["Une voiture de société (Company Cars)", "car"]
+  ] },
+  fuel: { q: "Quel combustible ?", opts: [
+    ["Gazole / diesel, en litres", { kpi: "diesel_site" }],
+    ["Gaz, en kWh", { kpi: "gas", note: "Si le document n'indique que des m³, applique la méthode de conversion validée par Worldline." }],
+    ["Fioul / mazout, en litres", "fuel2"]
+  ] },
+  fuel2: { q: "As-tu un justificatif explicite qui prouve que ce fioul est renouvelable ?", opts: [
+    ["Oui, un document le démontre", { kpi: "renfueloil" }],
+    ["Non, ou je ne suis pas sûr", { kpi: "fueloil", note: "Sans preuve, ne classe pas le produit en Renewable Fuel Oil. Demande le justificatif s'il se présente comme renouvelable." }]
+  ] },
+  elec: { q: "Que dit le justificatif sur l'origine de l'électricité ?", opts: [
+    ["Elle est qualifiée de 100 % renouvelable (contrat, attestation)", { kpi: "renelec" }],
+    ["Elle est explicitement identifiée comme nucléaire", { kpi: "nuclear" }],
+    ["C'est une consommation de refroidissement isolée et validée", { kpi: "cooling" }],
+    ["Facture classique, sans catégorie particulière", { kpi: "normalgrid", note: "Une simple part renouvelable dans un mix ne suffit pas à passer en Renewable Electricity." }]
+  ] },
+  heat: { q: "Que reçoit le site ?", opts: [
+    ["De la chaleur d'un réseau de chaleur urbain", { kpi: "district" }],
+    ["De la chaleur mesurée en kWh", { kpi: "heat", note: "Si le site brûle lui-même un combustible, reviens au début : c'est un KPI direct." }],
+    ["De la vapeur", { kpi: "steam" }]
+  ] },
+  prod: { q: "L'énergie produite est-elle renouvelable ?", opts: [
+    ["Oui (solaire, par exemple)", "prod2"],
+    ["Non (groupe électrogène, par exemple)", { kpi: "nonrenprod", note: "Reporte l'énergie produite en kWh, pas le diesel consommé : celui-ci va dans Diesel (L)." }]
+  ] },
+  prod2: { q: "Que veux-tu reporter ?", opts: [
+    ["Tout ce que l'installation produit", { kpi: "renprod" }],
+    ["Ce que le site consomme réellement sur place", { kpi: "selfcons" }]
+  ] },
+  car: { q: "Que mesures-tu ?", opts: [
+    ["Combien de véhicules, par type", { kpi: "nbcars" }],
+    ["La distance parcourue", { kpi: "km" }],
+    ["Du gazole, en litres", { kpi: "diesel_car" }],
+    ["De l'essence, en litres (Petrol)", { kpi: "petrol_car" }],
+    ["L'électricité des véhicules électriques", { kpi: "ev" }]
+  ] }
+};
+
+/* Tableau de survie : « si je vois… je pense à… » */
+WL.SURVIVAL = [
+  ["Diesel / gasoil", "diesel_site"], ["Natural gas", "gas"], ["Heating oil / fuel oil", "fueloil"],
+  ["R410A, R134a, R32…", "refrig"], ["Solar / renewable production", "renprod"],
+  ["Électricité réseau classique", "normalgrid"], ["Électricité renouvelable justifiée", "renelec"],
+  ["District heating", "district"], ["Steam", "steam"], ["Heat supplied", "heat"],
+  ["Énergie renouvelable produite et consommée sur place", "selfcons"]
+];
+
+/* ------------------------------------------------------------------ */
+/* Glossaire anglais – français                                         */
+/* ------------------------------------------------------------------ */
+WL.GLOSS = [
+["Energy","Énergie"],["Energy consumption","Consommation d'énergie"],["Direct energy","Énergie directe"],["Indirect energy","Énergie indirecte"],
+["Petrol","Essence"],["Gasoline","Essence"],["Diesel","Gazole / diesel"],["Fuel oil","Fioul / mazout"],["Renewable fuel oil","Fioul / combustible liquide renouvelable"],
+["Gas","Gaz"],["Natural gas","Gaz naturel"],["Electricity","Électricité"],["Renewable electricity","Électricité renouvelable"],
+["Normal grid electricity","Électricité du réseau / mix réseau"],["Nuclear electricity","Électricité nucléaire"],["District heating","Chauffage urbain / réseau de chaleur"],
+["Cooling","Refroidissement"],["Cooling electricity","Énergie / électricité de refroidissement"],["Heat","Chaleur"],["Heat consumption","Consommation de chaleur"],
+["Steam","Vapeur"],["Steam consumption","Consommation de vapeur"],["Renewable energy production","Production d'énergie renouvelable"],
+["Non-renewable energy production","Production d'énergie non renouvelable"],["Self-generated energy","Énergie autoproduite"],
+["Consumption of self-generated renewable energy","Consommation d'énergie renouvelable autoproduite"],
+["Refrigerant","Fluide frigorigène"],["Refrigerant gas","Gaz frigorigène"],["Refrigerant leak","Fuite de fluide frigorigène"],["HFC","Hydrofluorocarbure"],
+["Global Warming Potential (GWP)","Potentiel de réchauffement global (PRG)"],["Company car","Véhicule de société"],["Fleet","Flotte automobile"],["Fleet management","Gestion de flotte"],
+["Number of cars per type","Nombre de véhicules par type"],["KM travelled","Kilomètres parcourus"],["Battery Electric Vehicle","Véhicule électrique à batterie"],
+["Electric vehicle (EV)","Véhicule électrique"],["Petrol vehicle","Véhicule essence"],["Diesel vehicle","Véhicule diesel"],["Hybrid vehicle","Véhicule hybride"],
+["Plug-in hybrid","Hybride rechargeable"],["Plug-in Hybrid Petrol","Hybride rechargeable essence"],["Plug-in Hybrid Diesel","Hybride rechargeable diesel"],
+["Hydrogen vehicle","Véhicule à hydrogène"],["Fuel Cell Vehicle","Véhicule à pile à combustible"],["Liter / Litre","Litre"],["kWh","Kilowattheure"],["kg","Kilogramme"],
+["Meter reading","Relevé de compteur"],["Invoice","Facture"],["Evidence","Justificatif / preuve"],["Actual data","Données réelles"],["Estimated data","Données estimées"],
+["Baseline","Valeur / année de référence"],["Full coverage","Couverture complète"],["Data contributor","Contributeur de données"],["Control executor","Responsable du contrôle"],
+["Data quality","Qualité des données"],["Data consistency","Cohérence des données"],["Data completeness / exhaustiveness","Exhaustivité des données"],
+["Data collection","Collecte des données"],["Data consolidation","Consolidation des données"],["Submit for approval","Soumettre pour validation"],["Data approver","Validateur des données"],
+["Facility Management","Gestion des bâtiments / services généraux"],["Data Center","Centre de données"],["Scope 1","Émissions directes"],
+["Scope 2","Émissions indirectes liées à l'énergie"],["CO₂e","Équivalent CO₂"]
+];
+
+/* ------------------------------------------------------------------ */
+/* Questions                                                            */
+/* ------------------------------------------------------------------ */
+WL.Q = [];
+function mc(id, th, q, good, bad, e, extra) {
+  var o = { id: id, th: th, q: q, o: [good].concat(bad), a: 0, e: e };
+  if (extra) { for (var k in extra) { o[k] = extra[k]; } }
+  WL.Q.push(o);
+}
+function tf(id, q, truth, e) {
+  WL.Q.push({ id: id, th: "tf", q: q, o: ["Vrai", "Faux"], a: truth ? 0 : 1, fix: true, e: e });
+}
+function kq(id, ctx, doc, good, bad, e) {
+  mc(id, "kpi", "Dans quel KPI saisis-tu cette donnée ?", WL.lab(good), bad.map(WL.lab), e, { ctx: ctx, d: doc });
+}
+
+/* ---- Quel KPI ? ---- */
+kq("k1", "Offices & Data Centers", ["Facture d'énergie", "Natural gas", "Gas consumption : 84 300 kWh"], "gas", ["district", "heat", "fueloil"],
+   "« Natural gas » en kWh : c'est le KPI Gas. Le gaz est brûlé par le site. Un réseau de chaleur livre de la chaleur déjà produite ailleurs.");
+kq("k2", "Offices & Data Centers", ["Rapport de maintenance HVAC", "Gaz : R-410A", "Recharge après fuite : 3,5 kg"], "refrig", ["gas", "fueloil", "cooling"],
+   "Un gaz de climatisation qui fuit se reporte en kg, par type de gaz.");
+kq("k3", "Offices & Data Centers", ["Bon de livraison", "Heating oil", "2 000 L"], "fueloil", ["diesel_site", "renfueloil", "petrol_car"],
+   "« Heating oil » est du fioul pour installation : Fuel Oil, en litres. Sans justificatif renouvelable, ce n'est pas du Renewable Fuel Oil.");
+kq("k4", "Offices & Data Centers", ["Bon de livraison", "Diesel fuel, groupe électrogène du Data Center", "1 200 L"], "diesel_site", ["fueloil", "nonrenprod", "diesel_car"],
+   "Du diesel consommé par un équipement du site, en litres : Diesel (L). L'électricité produite par ce groupe serait une autre ligne.");
+kq("k5", "Offices & Data Centers", ["Relevé de l'onduleur, panneaux solaires du toit", "Production totale du trimestre : 13 000 kWh"], "renprod", ["selfcons", "renelec", "nonrenprod"],
+   "C'est la production totale de l'installation du site : Renewable Energy Production. L'autoconsommation est une autre ligne.");
+kq("k6", "Offices & Data Centers", ["Facture d'électricité", "Offre standard, aucune mention d'origine", "Consommation : 245 000 kWh"], "normalgrid", ["renelec", "nuclear", "cooling"],
+   "Une facture classique, sans justificatif d'origine ni catégorie spécifique : Normal Grid Electricity.");
+kq("k7", "Offices & Data Centers", ["Facture + attestation", "Offre 100 % renouvelable", "Garanties d'origine jointes", "310 000 kWh"], "renelec", ["normalgrid", "renprod", "selfcons"],
+   "Le justificatif permet de qualifier l'électricité de renouvelable : Renewable Electricity. Sans lui, ce serait Normal Grid.");
+kq("k8", "Offices & Data Centers", ["Facture du réseau de chaleur urbain", "District heating", "96 000 kWh livrés"], "district", ["gas", "steam", "normalgrid"],
+   "Le site achète de la chaleur produite ailleurs : District Heating.");
+kq("k9", "Offices & Data Centers", ["Facture", "Libellé : Steam", "Énergie de la vapeur : 18 000 kWh"], "steam", ["heat", "gas", "district"],
+   "La vapeur reçue comme vecteur énergétique, exprimée en kWh : Steam Consumption.");
+kq("k10", "Data Center", ["Sous-compteur", "Cooling, salle serveurs 1", "410 000 kWh"], "cooling", ["normalgrid", "heat", "renelec"],
+   "Une consommation de refroidissement réellement isolée par un sous-compteur : Cooling Electricity.");
+kq("k11", "Offices & Data Centers", ["Production solaire : 13 000 kWh", "Exportée vers le réseau : 3 000 kWh", "Autoconsommation mesurée : 10 000 kWh"], "selfcons", ["renprod", "renelec", "nonrenprod"],
+   "La ligne « Autoconsommation mesurée » est ce que le site consomme réellement : Consumption of Self-Generated Renewable Energy. Les 13 000 kWh relèveraient de Renewable Energy Production.");
+kq("k13", "Company Cars", ["Rapport de flotte", "Gasoline, cartes carburant", "3 400 L"], "petrol_car", ["diesel_car", "fueloil", "ev"],
+   "Gasoline = Petrol = essence. En litres, pour la flotte : Petrol (L).");
+kq("k14", "Company Cars", ["Fleet Management", "Petrol Vehicle : 11", "Battery Electric Vehicle : 9", "Plug-in Hybrid Diesel : 4"], "nbcars", ["km", "petrol_car", "ev"],
+   "Des véhicules comptés par motorisation : Number of cars per type.");
+kq("k15", "Company Cars", ["Télématique", "Distance totale du trimestre : 318 000 km"], "km", ["nbcars", "diesel_car", "ev"],
+   "Une distance parcourue : KM travelled.");
+kq("k16", "Company Cars", ["Opérateur de recharge", "Énergie rechargée : 15 800 kWh"], "ev", ["petrol_car", "km", "nbcars"],
+   "L'électricité consommée pour recharger les véhicules électriques, en kWh : Electricity Consumption (Company Cars).");
+
+mc("k12", "kpi", "Un groupe électrogène a consommé 1 800 L de diesel pour produire 6 400 kWh d'électricité. Quelle valeur va dans Non-Renewable Energy Production ?",
+   "Les 6 400 kWh produits", ["Les 1 800 L de diesel", "Les deux valeurs dans la même ligne", "Aucune des deux"],
+   "La production, c'est l'énergie sortie (kWh). Le combustible consommé (litres) est une autre donnée : il relève de Diesel (L).");
+mc("k17", "kpi", "Ton fournisseur écrit : « notre mix est composé à 40 % d'énergies renouvelables ». Où saisis-tu ces kWh ?",
+   "Normal Grid Electricity", ["Renewable Electricity", "40 % en Renewable Electricity et 60 % en Normal Grid", "Nuclear Electricity"],
+   "Selon le guide, on ne reporte pas comme « renewable » la simple part renouvelable d'un mix, et on n'éclate pas soi-même le mix national.");
+mc("k18", "kpi", "Le fournisseur écrit « bio-fioul » sur la facture, sans aucun justificatif. Que fais-tu ?",
+   "Je demande un justificatif avant de le classer en Renewable Fuel Oil", ["Je le classe en Renewable Fuel Oil : le nom est assez clair", "Je le saisis dans Petrol", "Je l'ignore"],
+   "La qualification de « renouvelable » doit être documentée. Un nom commercial ne suffit pas.");
+mc("k19", "kpi", "Une facture de gaz n'indique que des m³. UL360 attend des kWh. Que fais-tu ?",
+   "J'applique la méthode de conversion validée par Worldline", ["Je saisis les m³ tels quels", "Je saisis les m³ dans la ligne Diesel", "Je laisse la ligne vide"],
+   "Le support attend des kWh : il faut convertir avec la méthode validée, pas saisir le volume tel quel.");
+mc("k20", "kpi", "Un site reçoit de la chaleur d'un réseau et ne brûle rien sur place. Quelle donnée reporte-t-il ?",
+   "L'énergie thermique livrée, en kWh", ["Du gaz consommé", "Du fioul en litres", "Des kg de fluide frigorigène"],
+   "S'il achète la chaleur, on reporte l'énergie livrée. Un combustible ne relève d'un KPI direct que si le site le brûle lui-même.");
+mc("k21", "kpi", "Le type de gaz frigorigène n'apparaît pas dans la liste du support. Que fais-tu ?",
+   "J'utilise « Other – quantity » et je précise le gaz", ["Je supprime la fuite du reporting", "Je choisis R-410A au hasard", "Je saisis les kg dans Gas"],
+   "Le support prévoit « Other – quantity » avec le gaz précisé. Si l'information manque, on la demande au building ou au Data Center management.");
+
+/* ---- Unités et anomalies ---- */
+var U4 = ["Litres (L)", "kWh", "Kilogrammes (kg)", "Mètres cubes (m³)"];
+function uq(id, q, correct, e) {
+  var pool = U4.slice(); var i = pool.indexOf(correct);
+  if (i < 0) { pool.pop(); pool.unshift(correct); i = 0; }
+  mc(id, "unit", q, correct, pool.filter(function (x) { return x !== correct; }).slice(0, 3), e);
+}
+uq("u1", "Quelle unité Worldline attend pour Fuel Oil ?", "Litres (L)", "Le Fuel Oil est un combustible liquide, reporté en litres.");
+uq("u2", "Quelle unité pour Refrigerant leaks ?", "Kilogrammes (kg)", "Un gaz qui fuit se pèse : kg, par type de gaz.");
+uq("u3", "Quelle unité pour Gas (Offices & Data Centers) ?", "kWh", "Dans ce support, la ligne Gas est reportée en kWh.");
+uq("u4", "Quelle unité pour Petrol (Company Cars) ?", "Litres (L)", "L'essence de la flotte est reportée en litres.");
+uq("u5", "Quelle unité pour Cooling Electricity ?", "kWh", "Toute électricité se reporte en kWh.");
+uq("u6", "Quelle unité pour Diesel (Offices & Data Centers) ?", "Litres (L)", "Le diesel est un combustible liquide : litres.");
+uq("u7", "Quelle unité pour Electricity Consumption (Company Cars) ?", "kWh", "L'électricité des véhicules électriques se reporte en kWh.");
+mc("u8", "unit", "Quelle unité pour Number of cars per type ?", "Un nombre de véhicules", ["Des litres", "Des kilomètres", "Des kWh"],
+   "On compte des véhicules, par motorisation.");
+
+function an(id, val, good, bad, e) {
+  mc(id, "unit", "Que cloche dans cette saisie : « " + val + " » ?", good, bad, e);
+}
+an("a1", "Fuel Oil = 5 000 kWh", "Le Fuel Oil se reporte en litres", ["Rien, c'est normal", "Le Fuel Oil se reporte en kg", "Le Fuel Oil se reporte en nombre"], "Le support Worldline demande le Fuel Oil en litres.");
+an("a2", "R410A = 25 kWh", "Une fuite de frigorigène se reporte en kg", ["Rien, c'est normal", "Le R410A se reporte en litres", "Il faut le convertir en km"], "Une fuite de fluide frigorigène est une quantité de gaz, pas une énergie.");
+an("a3", "Petrol (Company Cars) = 8 000 kWh", "L'essence de la flotte se reporte en litres", ["Rien, c'est normal", "L'essence se reporte en kg", "L'essence se reporte en nombre de véhicules"], "Le support Company Cars demande l'essence en litres.");
+an("a4", "Normal Grid Electricity = 200 000 L", "L'électricité se reporte en kWh", ["Rien, c'est normal", "L'électricité se reporte en kg", "L'électricité se reporte en km"], "L'électricité est une énergie : kWh.");
+an("a5", "Gas (Offices) = 1 500 L", "Dans ce support, le gaz se reporte en kWh", ["Rien, c'est normal", "Le gaz se reporte en kg", "Le gaz se reporte en nombre"], "La ligne Gas d'Offices & Data Centers est en kWh.");
+an("a6", "KM travelled = 40 véhicules", "Les km sont une distance, pas un nombre de véhicules", ["Rien, c'est normal", "Les km se reportent en litres", "Il faut convertir en kWh"], "KM travelled mesure la distance. Les véhicules se comptent dans Number of cars per type.");
+an("a7", "Diesel (Company Cars) = 9 000 kWh", "UL360 attend des litres, pas des kWh", ["Rien, c'est normal", "Il faut des kg", "Il faut un nombre de véhicules"], "Ne convertis pas spontanément les litres en kWh si UL360 attend des litres.");
+
+/* ---- Traductions ---- */
+function tr(id, term, good, bad, e) { mc(id, "trad", "Que veut dire « " + term + " » ?", good, bad, e); }
+tr("t1", "Petrol", "Essence", ["Pétrole", "Gazole", "Fioul"], "Piège principal : petrol = essence, jamais « pétrole ».");
+tr("t2", "Gasoline", "Essence", ["Gaz", "Gazole", "Fioul"], "Gasoline est le terme américain équivalent à petrol. Ne le confonds pas avec « gas » (gaz).");
+tr("t3", "Gas", "Gaz", ["Essence", "Gazole", "Vapeur"], "Gas = gaz. Dans le support Offices & Data Centers, il se reporte en kWh.");
+tr("t4", "Fuel oil", "Fioul / mazout", ["Essence", "Huile de moteur", "Gazole"], "Fuel oil est le fioul pour installation. Heating oil en est un synonyme courant.");
+tr("t5", "District heating", "Chauffage urbain / réseau de chaleur", ["Chauffage au gaz du site", "Climatisation", "Chaudière au fioul"], "Le site achète de la chaleur produite ailleurs.");
+tr("t6", "Steam", "Vapeur", ["Fumée", "Chaleur du réseau", "Gaz naturel"], "Steam = vapeur, reçue comme vecteur énergétique.");
+tr("t7", "Refrigerant leak", "Fuite de fluide frigorigène", ["Fuite de fioul", "Panne de climatisation", "Fuite d'eau"], "Un gaz de refroidissement qui s'échappe d'un équipement.");
+tr("t8", "Plug-in Hybrid Petrol", "Hybride rechargeable essence", ["Hybride essence classique", "Véhicule électrique", "Hybride rechargeable diesel"], "Essence + batterie rechargeable. Ce n'est pas un véhicule 100 % électrique.");
+tr("t9", "Self-generated energy", "Énergie autoproduite", ["Énergie achetée", "Énergie nucléaire", "Énergie stockée"], "L'énergie que le site produit lui-même.");
+tr("t10", "Baseline", "Valeur / année de référence", ["Facture", "Compteur", "Justificatif"], "La valeur de référence est celle d'une année précédente, utilisée pour comparer.");
+tr("t11", "Evidence", "Justificatif / preuve", ["Estimation", "Facteur d'émission", "Unité"], "Le justificatif permet de défendre la classification.");
+tr("t12", "Fleet", "Flotte automobile", ["Carburant", "Parc immobilier", "Fournisseur"], "L'ensemble des véhicules de société.");
+tr("t13", "Data approver", "Validateur des données", ["Contributeur de données", "Responsable du contrôle", "Fournisseur"], "Il valide les données soumises pour validation (Submit for approval).");
+
+/* ---- Vrai ou faux ---- */
+tf("p1", "« Petrol » veut dire pétrole.", false, "Petrol = essence.");
+tf("p2", "Diesel et Fuel Oil sont le même KPI chez Worldline.", false, "Ce sont deux KPI différents, même si les deux sont des combustibles liquides.");
+tf("p3", "Gas et Gasoline désignent la même chose.", false, "Gas = gaz. Gasoline = essence.");
+tf("p4", "Le kWh mesure une quantité de CO₂.", false, "Le kWh mesure une quantité d'énergie.");
+tf("p5", "Une fuite de fluide frigorigène se reporte en kWh.", false, "C'est une fuite de gaz, reportée en kg.");
+tf("p6", "Toute électricité achetée va dans Normal Grid Electricity.", false, "Worldline prévoit plusieurs catégories : renouvelable justifiée, nucléaire, refroidissement…");
+tf("p7", "Production d'énergie renouvelable et autoconsommation sont toujours égales.", false, "Une partie de ce qui est produit peut être exportée ou non consommée sur place.");
+tf("p8", "Un hybride rechargeable est un véhicule 100 % électrique.", false, "Selon le type, il peut consommer à la fois un carburant liquide et de l'électricité.");
+tf("p10", "Pour la vapeur, le KPI porte sur l'énergie de la vapeur consommée.", true, "Pas nécessairement sur le combustible utilisé par le fournisseur pour la produire.");
+tf("p12", "Pour un véhicule diesel, il faut convertir les litres en kWh avant de saisir.", false, "UL360 attend des litres : ne convertis pas spontanément.");
+tf("p13", "Mon premier réflexe doit être de chercher le facteur d'émission.", false, "D'abord : que représente physiquement la donnée, quelle unité, quel KPI ? Le facteur vient ensuite.");
+tf("p14", "Si le site brûle lui-même du gaz, c'est Gas ; s'il achète de la chaleur à un réseau, c'est District Heating.", true, "Le combustible brûlé sur place relève d'un KPI direct, la chaleur livrée par un réseau d'un KPI indirect.");
+
+WL.MODES = [
+  { id: "mix",  name: "Mélange", sub: "10 questions tirées au hasard", icon: "shuffle" },
+  { id: "kpi",  name: "Quel KPI ?", sub: "Un document, un indicateur", icon: "doc" },
+  { id: "unit", name: "Unités et anomalies", sub: "L, kWh, kg : repère l'erreur", icon: "ruler" },
+  { id: "trad", name: "Traductions", sub: "Petrol, Fuel oil, Steam…", icon: "abc" },
+  { id: "tf",   name: "Vrai ou faux", sub: "Les pièges classiques", icon: "check" }
+];
+
+})(window.WL);
+
+/* Leçons : texte + schémas SVG originaux */
+(function (WL) {
+var ico = function (n, u) { return WL.ico(n, u); };
+var chip = function (u) { return WL.chip(u); };
+
+WL.LESSONS = [
+
+{ id: "chain", title: "La logique générale", sub: "Qualifier la donnée avant de calculer",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Avant de calculer, il faut qualifier</h2>'
+    + '<p>Worldline collecte d\'abord des <b>données d\'activité</b> : des litres, des kWh, des kg, des km, un nombre de véhicules. Ces données servent ensuite à calculer des émissions de CO₂e, avec les méthodes et les facteurs applicables.</p>'
+    + '<div class="eq key">'
+    + '<div><b>1. Donnée d\'activité</b><br>Ce que tu collectes : 84 300 kWh de gaz, 3,5 kg de R-410A, 1 200 L de diesel…</div>'
+    + '<div class="op">×</div>'
+    + '<div><b>2. Facteur d\'émission</b><br>Appliqué ensuite, selon les méthodes Worldline et UL360.</div>'
+    + '<div class="op">=</div>'
+    + '<div><b>3. Émissions de CO₂e</b><br>Le résultat du calcul.</div></div>'
+    + '<div class="callout reflex"><svg class="ui"><use href="#u-bulb"/></svg><div><h3>Ton premier réflexe</h3><p>Pas « quel est le facteur d\'émission ? », mais : <b>qu\'est-ce que cette donnée représente physiquement, quelle est son unité, et dans quel KPI UL360 doit-elle aller ?</b></p></div></div>'
+    + '<h2>Une analogie avec ton raisonnement juridique</h2>'
+    + '<table class="tbl"><tr><th>En droit</th><th>Ici</th></tr>'
+    + '<tr><td>Qualifier les faits</td><td>Identifier ce que la donnée représente physiquement</td></tr>'
+    + '<tr><td>Choisir la règle applicable</td><td>Choisir le bon KPI UL360 et son unité</td></tr>'
+    + '<tr><td>Appliquer la règle</td><td>Le facteur d\'émission transforme la donnée en CO₂e</td></tr>'
+    + '<tr><td>Produire la preuve</td><td>Conserver le justificatif de la classification</td></tr></table>'
+    + '<p class="hint">Analogie pédagogique : elle t\'aide à retenir l\'ordre des opérations, elle ne remplace pas la méthodologie Worldline.</p>'
+    + '<h2>Les 4 familles de données</h2>'
+    + '<div class="kv">'
+    + '<div>' + chip("L") + '<b>Combustibles et carburants</b><span>Matières utilisées comme source d\'énergie. L ou kWh.</span></div>'
+    + '<div>' + chip("kWh") + '<b>Électricité</b><span>Énergie électrique achetée ou produite.</span></div>'
+    + '<div>' + chip("kWh") + '<b>Chaleur, froid, vapeur</b><span>Énergie thermique achetée ou consommée.</span></div>'
+    + '<div>' + chip("kg") + '<b>Fluides frigorigènes</b><span>Gaz présents dans les systèmes de refroidissement.</span></div>'
+    + '</div></div>';
+  } },
+
+{ id: "units", title: "Les quatre unités", sub: "Litre, kWh, kilo, kilomètre",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Quatre unités couvrent presque tout</h2>'
+    + '<div class="kv">'
+    + '<div>' + chip("L") + '<b>Le litre</b><span>Un volume de liquide : diesel, fioul, essence. Un jerrican, c\'est 20 L.</span></div>'
+    + '<div>' + chip("kg") + '<b>Le kilogramme</b><span>Une masse. On pèse le gaz frigorigène perdu, comme un sac de sucre.</span></div>'
+    + '<div>' + chip("km") + '<b>Le kilomètre</b><span>Une distance : ce que le compteur des véhicules a enregistré.</span></div>'
+    + '<div>' + chip("nb") + '<b>Le nombre</b><span>On compte des véhicules, par motorisation.</span></div>'
+    + '</div>'
+    + '<h2>Le kWh, l\'unité qui déroute</h2>'
+    + '<p>Le kilowattheure mesure une <b>quantité d\'énergie</b>. Électricité, chaleur, vapeur, et gaz dans ce support : tout passe en kWh. Ne le confonds pas avec le <b>kW</b>, une puissance.</p>'
+    + '<figure class="fig"><svg viewBox="0 0 340 162" role="img" aria-label="Le robinet représente la puissance en kW, le seau rempli représente l\'énergie en kWh">'
+    + '<path class="ln" d="M20 40h50a14 14 0 0 1 14 14v6"/><path class="ln" d="M20 28v24M12 28h16"/><rect x="78" y="60" width="12" height="10" rx="2" fill="var(--ukWh)" stroke="none"/>'
+    + '<path d="M84 76v20M84 106v8" stroke="var(--ukWh)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9" fill="none"/>'
+    + '<path class="bld" d="M200 78h90l-10 56h-70z"/><path d="M207 104h76l-5 30h-66z" fill="var(--ukWh)" fill-opacity=".35"/>'
+    + '<text class="tx" x="70" y="22">Le robinet</text><text class="tx2" x="70" y="140">débit = kW (puissance)</text>'
+    + '<text class="tx" x="245" y="62">Le seau rempli</text><text class="tx2" x="245" y="148">eau écoulée = kWh (énergie)</text>'
+    + '<path class="ar" d="M120 100h64M178 94l8 6-8 6"/></svg>'
+    + '<figcaption>kW est la vitesse à laquelle l\'énergie circule, kWh est la quantité qui a circulé.</figcaption></figure>'
+    + '<h2>1 kWh, concrètement</h2>'
+    + '<ul><li>Un radiateur de <b>1 kW</b> allumé pendant <b>1 heure</b>.</li>'
+    + '<li>Une ampoule de <b>100 W</b> allumée pendant <b>10 heures</b>.</li>'
+    + '<li>Une bouilloire de <b>2 kW</b> en marche pendant <b>30 minutes</b>.</li></ul>'
+    + '<div class="callout warn"><svg class="ui"><use href="#u-warn"/></svg><div><h3>kWh ≠ CO₂</h3><p>Le kWh mesure une énergie. Le CO₂e ne vient qu\'après, quand un facteur d\'émission est appliqué.</p></div></div>'
+    + '</div>';
+  } },
+
+{ id: "words", title: "Les mots piégeux", sub: "Petrol, gasoline, gas, diesel, fuel oil",
+  body: function () {
+    function pair(en, fr, no) { return '<div class="pair"><span class="en">' + en + '</span><span class="ar">→</span><span class="fr">' + fr + '</span>' + (no ? '<span class="no">' + no + '</span>' : '') + '</div>'; }
+    return '<div class="lesson">'
+    + '<h2>Petrol = essence</h2>'
+    + '<div class="result u-L" style="grid-template-columns:auto 1fr;align-items:center">' + ico("pumpE", "L")
+    + '<div><div class="mono" style="font-weight:600">PETROL</div><div class="quote">= essence, la station-service.</div><p class="hint">Ce n\'est pas le « pétrole » au sens français.</p></div></div>'
+    + '<div class="gap-s">'
+    + pair("Petrol", "Essence", "Carburant des voitures essence.")
+    + pair("Gasoline", "Essence", "Terme américain équivalent à petrol. Ne le confonds pas avec « gas ».")
+    + pair("Gas", "Gaz", "Combustible gazeux. Dans Offices et Data Centers, il se reporte en kWh.")
+    + pair("Diesel", "Gazole", "Peut aussi alimenter des équipements, comme un groupe électrogène.")
+    + pair("Fuel oil", "Fioul / mazout", "Combustible liquide pour installations thermiques.")
+    + '</div>'
+    + '<h2>Les erreurs à éviter absolument</h2>'
+    + '<table class="tbl">'
+    + '<tr><td class="bad">Petrol = pétrole</td><td>Faux : Petrol = essence.</td></tr>'
+    + '<tr><td class="bad">Diesel = Fuel Oil</td><td>Faux : deux KPI différents.</td></tr>'
+    + '<tr><td class="bad">Gas = Gasoline</td><td>Faux : gaz ≠ essence.</td></tr>'
+    + '<tr><td class="bad">kWh = CO₂</td><td>Faux : le kWh est une énergie.</td></tr>'
+    + '<tr><td class="bad">Fuite de frigorigène = énergie</td><td>Faux : une fuite de gaz, en kg.</td></tr>'
+    + '<tr><td class="bad">Toute électricité = Normal Grid</td><td>Faux : plusieurs catégories existent.</td></tr>'
+    + '<tr><td class="bad">Toute énergie renouvelable = Renewable Electricity</td><td>Faux : le support distingue aussi production et autoconsommation.</td></tr></table>'
+    + '</div>';
+  } },
+
+{ id: "dirind", title: "Direct ou indirect ?", sub: "Brûler sur place, ou acheter à l'extérieur",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Une seule question : d\'où vient l\'énergie ?</h2>'
+    + '<figure class="fig"><svg viewBox="0 0 340 226" role="img" aria-label="À gauche, un bâtiment qui brûle du gaz sur place : énergie directe. À droite, un bâtiment alimenté par un pylône : énergie indirecte">'
+    + '<rect class="bld" x="12" y="76" width="112" height="100" rx="4"/><rect class="bld" x="92" y="40" width="16" height="36"/>'
+    + '<path d="M96 30c-4-6 4-8 0-14M104 30c-4-6 4-8 0-14" class="ar"/>'
+    + '<svg x="42" y="102" width="52" height="52" class="ukWh"><use href="#i-gas"/></svg>'
+    + '<text class="tx" x="68" y="196">On brûle sur place</text><text class="tx2" x="68" y="210">Direct energy</text>'
+    + '<rect class="bld" x="216" y="76" width="112" height="100" rx="4"/>'
+    + '<rect x="236" y="96" width="22" height="22" rx="3" fill="var(--ukWh)" fill-opacity=".25" stroke="var(--ink)" stroke-width="2"/><rect x="286" y="96" width="22" height="22" rx="3" fill="var(--ukWh)" fill-opacity=".25" stroke="var(--ink)" stroke-width="2"/>'
+    + '<rect x="258" y="132" width="26" height="44" rx="3" fill="var(--bg)" stroke="var(--ink)" stroke-width="2"/>'
+    + '<svg x="136" y="60" width="64" height="64" class="ukWh"><use href="#i-pylon"/></svg>'
+    + '<path class="ar" d="M136 150h70M200 144l8 6-8 6"/>'
+    + '<text class="tx" x="272" y="196">On achète à l\'extérieur</text><text class="tx2" x="272" y="210">Indirect energy</text></svg>'
+    + '<figcaption>Le gaz brûlé dans la chaudière du bâtiment est un KPI direct. L\'électricité, la chaleur ou la vapeur reçues de l\'extérieur sont des KPI indirects.</figcaption></figure>'
+    + '<table class="tbl"><tr><th>Situation</th><th>Repère</th></tr>'
+    + '<tr><td>Le site brûle du gaz, du diesel ou du fioul</td><td><b>Direct</b></td></tr>'
+    + '<tr><td>Un fluide frigorigène fuit d\'un équipement</td><td><b>Direct</b></td></tr>'
+    + '<tr><td>Le site achète de l\'électricité</td><td><b>Indirect</b></td></tr>'
+    + '<tr><td>Le site reçoit de la chaleur, du froid ou de la vapeur</td><td><b>Indirect</b></td></tr></table>'
+    + '<div class="callout reflex"><svg class="ui"><use href="#u-bulb"/></svg><div><h3>Le lien avec les scopes</h3><p>En comptabilité GES, les combustions directes et les fuites de frigorigènes relèvent généralement du <b>Scope 1</b>. L\'électricité, la chaleur, la vapeur et le froid achetés relèvent généralement du <b>Scope 2</b>. Le périmètre final reste celui retenu par Worldline.</p></div></div>'
+    + '</div>';
+  } },
+
+{ id: "fuelenergy", title: "Combustible ou énergie produite ?", sub: "Les litres entrent, les kWh sortent",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Ce qu\'on met dedans n\'est pas ce qui en sort</h2>'
+    + '<figure class="fig"><svg viewBox="0 0 340 176" role="img" aria-label="1 800 litres de diesel entrent dans un groupe électrogène, qui produit 6 400 kWh d\'électricité">'
+    + '<svg x="8" y="22" width="64" height="64" class="uL"><use href="#i-diesel"/></svg>'
+    + '<svg x="138" y="22" width="64" height="64" class="ukWh"><use href="#i-genset"/></svg>'
+    + '<svg x="268" y="22" width="64" height="64" class="ukWh"><use href="#i-greenplug"/></svg>'
+    + '<path class="ar" d="M78 54h50M122 48l8 6-8 6M208 54h50M252 48l8 6-8 6"/>'
+    + '<text class="tx3" x="40" y="108" style="fill:var(--uL)">1 800 L</text><text class="tx2" x="40" y="124">de diesel</text>'
+    + '<text class="tx2" x="170" y="108">groupe</text><text class="tx2" x="170" y="124">électrogène</text>'
+    + '<text class="tx3" x="300" y="108" style="fill:var(--ukWh)">6 400 kWh</text><text class="tx2" x="300" y="124">d\'électricité</text>'
+    + '<text class="tx" x="40" y="152">Diesel (L)</text><text class="tx" x="338" y="150" style="text-anchor:end">Non-Renewable</text><text class="tx" x="338" y="166" style="text-anchor:end">Energy Production</text></svg>'
+    + '<figcaption>Deux données, deux unités, deux KPI : le combustible consommé (litres) et l\'énergie produite (kWh). On ne mélange pas les deux.</figcaption></figure>'
+    + '<div class="row2"><div class="card u-L"><span class="chip">L</span><p style="margin-top:8px"><b>Diesel</b><br>Le combustible consommé par l\'équipement.</p></div>'
+    + '<div class="card u-kWh"><span class="chip">kWh</span><p style="margin-top:8px"><b>Non-Renewable Energy Production</b><br>L\'énergie produite sur site.</p></div></div>'
+    + '<h2>Même logique pour la chaleur</h2>'
+    + '<table class="tbl"><tr><th>Le site…</th><th>On reporte</th></tr>'
+    + '<tr><td>achète de la chaleur ou de la vapeur</td><td>l\'énergie livrée, en kWh (indirect)</td></tr>'
+    + '<tr><td>brûle lui-même un combustible</td><td>le combustible, dans un KPI direct</td></tr></table>'
+    + '<div class="callout reflex"><svg class="ui"><use href="#u-bulb"/></svg><div><h3>Question réflexe</h3><p>Suis-je en train de reporter le combustible consommé ou l\'énergie produite ?</p></div></div>'
+    + '</div>';
+  } },
+
+{ id: "prodcons", title: "Produire, exporter, consommer", sub: "Solaire : production ≠ autoconsommation",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Produire n\'est pas consommer</h2>'
+    + '<p>Prenons des panneaux solaires qui produisent <b>13 000 kWh</b> sur le trimestre (chiffres fictifs). Une partie est consommée par le bâtiment, le reste part vers le réseau.</p>'
+    + '<figure class="fig"><svg viewBox="0 0 340 170" role="img" aria-label="13 000 kWh produits : 10 000 consommés sur place et 3 000 exportés">'
+    + '<svg x="8" y="4" width="52" height="52" class="ukWh"><use href="#i-solar"/></svg>'
+    + '<text class="tx" x="76" y="24" style="text-anchor:start">Production totale</text><text class="tx3" x="76" y="44" style="text-anchor:start;fill:var(--ukWh)">13 000 kWh</text>'
+    + '<rect x="10" y="70" width="231" height="34" rx="6" fill="var(--ukWh)"/><rect x="245" y="70" width="85" height="34" rx="6" fill="var(--line)" stroke="var(--muted)" stroke-dasharray="4 4"/>'
+    + '<text class="tx3" x="125" y="92" style="fill:#fff">10 000</text><text class="tx3" x="287" y="92">3 000</text>'
+    + '<text class="tx" x="125" y="126">consommés sur place</text><text class="tx2" x="125" y="142">Self-Generated Renewable</text><text class="tx2" x="125" y="156">Energy Consumption</text>'
+    + '<text class="tx" x="287" y="126">exportés</text><text class="tx2" x="287" y="142">vers le réseau</text></svg>'
+    + '<figcaption>L\'échelle est respectée : 10 000 sur 13 000 kWh représentent environ 77 % de la barre.</figcaption></figure>'
+    + '<table class="tbl"><tr><th>Donnée</th><th>KPI</th></tr>'
+    + '<tr><td>13 000 kWh produits</td><td>Renewable Energy Production</td></tr>'
+    + '<tr><td>10 000 kWh consommés sur place</td><td>Consumption of Self-Generated Renewable Energy</td></tr></table>'
+    + '<p class="hint">Les kWh exportés n\'ont pas de ligne dédiée parmi les KPI décrits dans ce guide.</p>'
+    + '<div class="callout warn"><svg class="ui"><use href="#u-warn"/></svg><div><h3>Ne pas confondre avec Renewable Electricity</h3><p>« Renewable Electricity » est de l\'électricité <b>achetée</b> et justifiée comme renouvelable. L\'énergie solaire du toit est <b>produite</b> par le site.</p></div></div>'
+    + '</div>';
+  } },
+
+{ id: "cars", title: "Les motorisations des Company Cars", sub: "Hybride rechargeable ≠ 100 % électrique",
+  body: function () {
+    var rows = WL.VEHICLES.map(function (v) { return '<tr><td><span class="mono" style="font-size:13px">' + v[0] + '</span></td><td><b>' + v[1] + '</b><br><span class="hint">' + v[2] + '</span></td></tr>'; }).join("");
+    return '<div class="lesson">'
+    + '<h2>Cinq données pour la flotte</h2>'
+    + '<div class="kv">'
+    + '<div>' + chip("nb") + '<b>Nombre de véhicules</b><span>Par type, selon UL360.</span></div>'
+    + '<div>' + chip("km") + '<b>Kilomètres</b><span>Distance du trimestre.</span></div>'
+    + '<div>' + chip("L") + '<b>Diesel</b><span>Gazole, en litres.</span></div>'
+    + '<div>' + chip("L") + '<b>Petrol</b><span>Essence, en litres.</span></div>'
+    + '<div>' + chip("kWh") + '<b>Électricité</b><span>Recharge des véhicules électriques.</span></div></div>'
+    + '<h2>Les motorisations dans UL360</h2>'
+    + '<table class="tbl"><tr><th>Terme UL360</th><th>En français</th></tr>' + rows + '</table>'
+    + '<div class="callout warn"><svg class="ui"><use href="#u-warn"/></svg><div><h3>Hybride rechargeable ≠ électrique</h3><p>Selon le type, un hybride rechargeable peut consommer à la fois un carburant liquide et de l\'électricité. Un véhicule 100 % électrique, lui, ne consomme ni essence ni diesel.</p></div></div>'
+    + '</div>';
+  } },
+
+{ id: "method", title: "La méthode pour classer sans se tromper", sub: "7 étapes et 4 questions",
+  body: function () {
+    return '<div class="lesson">'
+    + '<h2>Sept étapes</h2>'
+    + '<ol class="steps">'
+    + '<li><span>Identifier la catégorie : Office, Data Center ou Company Car.</span></li>'
+    + '<li><span>Identifier la nature physique : essence, diesel, gaz, fioul, électricité, chaleur, vapeur, fluide frigorigène, distance ou nombre de véhicules.</span></li>'
+    + '<li><span>Vérifier l\'unité : L, kWh, kg, km ou nombre.</span></li>'
+    + '<li><span>Déterminer si l\'énergie est achetée ou produite sur site.</span></li>'
+    + '<li><span>Pour l\'électricité, vérifier la catégorie justifiée : renewable, normal grid, nuclear…</span></li>'
+    + '<li><span>Vérifier le risque de double comptage entre plusieurs lignes.</span></li>'
+    + '<li><span>Conserver ou demander le justificatif qui permet de défendre la classification.</span></li></ol>'
+    + '<h2>Les 4 questions avant toute saisie</h2>'
+    + '<div class="callout reflex"><svg class="ui"><use href="#u-bulb"/></svg><div><ol style="padding-left:18px;margin:0;display:grid;gap:4px"><li>Qu\'est-ce que la donnée représente physiquement ?</li><li>Quelle unité Worldline attend-elle ?</li><li>Dans quel KPI UL360 doit-elle être saisie ?</li><li>Quel justificatif permet de défendre cette classification ?</li></ol></div></div>'
+    + '<h2>Repérer une erreur en quelques secondes</h2>'
+    + '<p>Le contrôle des unités est l\'un des plus rapides et des plus efficaces.</p>'
+    + '<table class="tbl"><tr><th>Valeur suspecte</th><th>Pourquoi</th></tr>'
+    + '<tr><td class="mono bad">Fuel Oil = 5 000 kWh</td><td>Le Fuel Oil se reporte en litres.</td></tr>'
+    + '<tr><td class="mono bad">R410A = 25 kWh</td><td>Les fuites de frigorigène se reportent en kg.</td></tr>'
+    + '<tr><td class="mono bad">Petrol = 8 000 kWh</td><td>Company Cars demande l\'essence en litres.</td></tr>'
+    + '<tr><td class="mono bad">Normal Grid = 200 000 L</td><td>L\'électricité se reporte en kWh.</td></tr></table>'
+    + '</div>';
+  } }
+];
+
+})(window.WL);
+
+(function (WL) {
+"use strict";
+
+/* ---------- helpers ---------- */
+WL.ico = function (name, unit) {
+  return '<svg class="ico' + (unit ? ' u-' + unit : '') + '" viewBox="0 0 64 64" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+};
+WL.chip = function (u, big) { return '<span class="chip u-' + u + (big ? ' big' : '') + '">' + WL.UNITS[u].label + '</span>'; };
+function ui(n, cls) { return '<svg class="ui' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#u-' + n + '"/></svg>'; }
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function pad(n) { return n < 10 ? "0" + n : String(n); }
+function buzz(p) { try { if (navigator.vibrate) { navigator.vibrate(p); } } catch (e) {} }
+function toTop() { try { window.scrollTo(0, 0); } catch (e) {} }
+function byId(id) { return document.getElementById(id); }
+
+/* ---------- stockage facultatif ---------- */
+var store = { seen: {}, lessons: {}, best: {}, missed: [] };
+try {
+  var raw = localStorage.getItem("wlind.v1");
+  if (raw) { var p = JSON.parse(raw); if (p && typeof p === "object") {
+    store.seen = p.seen || {}; store.lessons = p.lessons || {}; store.best = p.best || {};
+    store.missed = Array.isArray(p.missed) ? p.missed : [];
+  } }
+} catch (e) {}
+function save() { try { localStorage.setItem("wlind.v1", JSON.stringify(store)); } catch (e) {} }
+var QBY = {}; WL.Q.forEach(function (q) { QBY[q.id] = q; });
+function cleanMissed() { store.missed = store.missed.filter(function (id) { return QBY[id]; }); }
+
+/* ---------- état ---------- */
+var S = { tab: "bases", sub: null, filter: "all", cls: { stack: ["start"], labels: [], result: null } };
+var sess = null;
+var main = byId("app");
+
+var TABS = [
+  { id: "bases", label: "Bases", icon: "book" },
+  { id: "fiches", label: "Fiches", icon: "cards" },
+  { id: "classer", label: "Classer", icon: "route" },
+  { id: "quiz", label: "Quiz", icon: "target" },
+  { id: "gloss", label: "Glossaire", icon: "abc" }
+];
+function drawTabs() {
+  byId("tabs").innerHTML = TABS.map(function (t) {
+    return '<button class="tab" data-tab="' + t.id + '"' + (S.tab === t.id ? ' aria-current="page"' : '') + '>' + ui(t.icon) + '<span>' + t.label + '</span></button>';
+  }).join("");
+  Array.prototype.forEach.call(byId("tabs").querySelectorAll(".tab"), function (b) {
+    b.addEventListener("click", function () {
+      var id = b.getAttribute("data-tab");
+      if (id === "quiz" && sess && !sess.done && S.tab === "quiz") { return; }
+      S.tab = id; S.sub = null; if (id !== "quiz") { sess = sess && sess.done ? null : sess; }
+      render();
+    });
+  });
+}
+function go(tab, sub) { S.tab = tab; S.sub = sub || null; render(); }
+
+function render() {
+  drawTabs(); toTop();
+  var t = S.tab;
+  if (t === "bases") { S.sub && S.sub.t === "lesson" ? renderLesson(S.sub.id) : renderBases(); }
+  else if (t === "fiches") { S.sub && S.sub.t === "kpi" ? renderKpi(S.sub.id) : renderFiches(); }
+  else if (t === "classer") { renderClasser(); }
+  else if (t === "quiz") { sess ? (sess.done ? renderResult() : renderQuestion()) : renderQuizHome(); }
+  else { renderGloss(); }
+  try { document.title = "Indicateurs Worldline"; } catch (e) {}
+}
+
+/* ---------- Bases ---------- */
+function renderBases() {
+  var nl = WL.LESSONS.length, dl = WL.LESSONS.filter(function (l) { return store.lessons[l.id]; }).length;
+  var ns = Object.keys(store.seen).filter(function (k) { return WL.KPI[k] && store.seen[k]; }).length;
+  cleanMissed();
+  var items = WL.LESSONS.map(function (l, i) {
+    return '<li><button class="item' + (store.lessons[l.id] ? ' done' : '') + '" data-lesson="' + l.id + '"><span class="num">' + (i + 1) + '</span>'
+      + '<span><span class="t">' + esc(l.title) + '</span><span class="s" style="display:block">' + esc(l.sub) + '</span></span>' + ui("chev", "go") + '</button></li>';
+  }).join("");
+  main.innerHTML =
+    '<div class="hero"><h1>Les indicateurs Worldline, enfin clairs</h1>'
+    + '<p class="lede">Quatre unités, vingt indicateurs, un seul réflexe : qualifier la donnée avant de calculer. Pensé pour comprendre sans bagage technique.</p></div>'
+    + '<div class="unitstrip" aria-label="Les quatre unités">'
+    + '<div class="u-L"><b>L</b><span>liquides : carburants</span></div><div class="u-kWh"><b>kWh</b><span>énergie</span></div>'
+    + '<div class="u-kg"><b>kg</b><span>gaz frigorigènes</span></div><div class="u-km"><b>km</b><span>distance</span></div></div>'
+    + '<div class="progress"><div><b>' + dl + '/' + nl + '</b><span>leçons lues</span></div><div><b>' + ns + '/' + WL.KPIS.length + '</b><span>fiches comprises</span></div><div><b>' + store.missed.length + '</b><span>questions à revoir</span></div></div>'
+    + '<h2 class="sec">Les leçons</h2><ul class="list">' + items + '</ul>'
+    + '<p class="hint" style="margin-top:18px">Source : support Worldline « Environmental Data collection Kick-off Q2 2026 ». Les exemples et analogies sont des repères pédagogiques : ils ne remplacent pas la méthodologie officielle ni la configuration UL360.</p>';
+  Array.prototype.forEach.call(main.querySelectorAll("[data-lesson]"), function (b) {
+    b.addEventListener("click", function () { go("bases", { t: "lesson", id: b.getAttribute("data-lesson") }); });
+  });
+}
+
+function renderLesson(id) {
+  var l = WL.LESSONS.filter(function (x) { return x.id === id; })[0];
+  var i = WL.LESSONS.indexOf(l), next = WL.LESSONS[i + 1], done = !!store.lessons[id];
+  main.innerHTML =
+    '<div class="page"><button class="back" id="back">' + ui("back") + 'Bases</button>'
+    + '<p class="mono hint">Leçon ' + (i + 1) + ' / ' + WL.LESSONS.length + '</p><h1>' + esc(l.title) + '</h1></div>'
+    + '<div style="margin-top:16px">' + l.body() + '</div>'
+    + '<div class="stack done-row" style="margin-top:22px">'
+    + '<button class="btn' + (done ? ' on' : '') + '" id="mark">' + (done ? '✓ Leçon lue' : 'Marquer comme lue') + '</button>'
+    + (next ? '<button class="btn ghost" id="next">Suivant : ' + esc(next.title) + '</button>' : '<button class="btn ghost" id="toquiz">Passer au quiz</button>')
+    + '</div>';
+  byId("back").addEventListener("click", function () { go("bases"); });
+  byId("mark").addEventListener("click", function () { store.lessons[id] = !store.lessons[id]; save(); renderLesson(id); });
+  var n = byId("next"); if (n) { n.addEventListener("click", function () { store.lessons[id] = true; save(); go("bases", { t: "lesson", id: next.id }); }); }
+  var q = byId("toquiz"); if (q) { q.addEventListener("click", function () { store.lessons[id] = true; save(); go("quiz"); }); }
+}
+
+/* ---------- Fiches ---------- */
+function kpiRow(k) {
+  return '<li><button class="item' + (store.seen[k.id] ? ' done' : '') + '" data-kpi="' + k.id + '">' + WL.ico(k.icon, k.unit)
+    + '<span><span class="t">' + esc(k.en) + '</span><span class="s" style="display:block">' + esc(k.fr) + '</span></span>' + WL.chip(k.unit) + '</button></li>';
+}
+function renderFiches() {
+  var f = S.filter;
+  var filters = [["all", "Tous"], ["direct", "Énergie directe"], ["indirect", "Énergie indirecte"], ["cars", "Company Cars"]];
+  var body = "";
+  ["direct", "indirect", "cars"].forEach(function (g) {
+    if (f !== "all" && f !== g) { return; }
+    var ks = WL.KPIS.filter(function (k) { return k.grp === g; });
+    body += '<h2 class="sec">' + WL.GROUPS[g].label + ' · ' + WL.GROUPS[g].site + '</h2><ul class="list">' + ks.map(kpiRow).join("") + '</ul>';
+  });
+  main.innerHTML =
+    '<div class="page"><h1>Les 20 fiches</h1><p class="sub">Touche un indicateur : image, exemple de document et piège à éviter.</p></div>'
+    + '<div class="filters" style="margin-top:14px">' + filters.map(function (x) { return '<button class="f" data-f="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + '</button>'; }).join("") + '</div>'
+    + body;
+  Array.prototype.forEach.call(main.querySelectorAll("[data-f]"), function (b) {
+    b.addEventListener("click", function () { S.filter = b.getAttribute("data-f"); renderFiches(); });
+  });
+  Array.prototype.forEach.call(main.querySelectorAll("[data-kpi]"), function (b) {
+    b.addEventListener("click", function () { go("fiches", { t: "kpi", id: b.getAttribute("data-kpi") }); });
+  });
+}
+
+function docCard(k) {
+  var d = k.doc;
+  var rows = d.rows.map(function (r, i) {
+    return '<div class="drow' + (i === d.hi ? ' hi' : '') + '"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>';
+  }).join("");
+  return '<div class="doc u-' + k.unit + '"><header><span>' + esc(d.t) + '</span><em>exemple fictif</em></header>' + rows
+    + (d.note ? '<div class="dnote">' + esc(d.note) + '</div>' : '<div class="dpad"></div>') + '</div>';
+}
+
+function renderKpi(id, from) {
+  var k = WL.KPI[id], seen = !!store.seen[id];
+  var conf = (k.conf || []).map(function (c) {
+    var o = WL.KPI[c];
+    return '<button class="link" data-kpi="' + c + '">' + WL.ico(o.icon, o.unit) + '<span>' + esc(WL.lab(c)) + '</span></button>';
+  }).join("");
+  var backTo = from === "classer" ? "Classer" : "Fiches";
+  main.innerHTML =
+    '<div class="page"><button class="back" id="back">' + ui("back") + backTo + '</button></div>'
+    + '<div class="stack">'
+    + '<div class="kpihero u-' + k.unit + '">' + WL.ico(k.icon, k.unit) + '<div class="meta">' + WL.chip(k.unit, true)
+    + '<span class="pill">' + WL.GROUPS[k.grp].label + '</span></div></div>'
+    + '<div class="page"><h1>' + esc(k.en) + '</h1><p class="sub">' + esc(k.fr) + ' · ' + WL.UNITS[k.unit].long + '</p></div>'
+    + '<p class="quote">' + esc(k.one) + '</p>'
+    + '<div class="blk"><h2>Ce que c\'est</h2><p>' + esc(k.what) + '</p></div>'
+    + '<div class="blk"><h2>À quoi ressemble la source</h2>' + docCard(k) + '</div>'
+    + '<div class="blk"><h2>Comment le reconnaître</h2><p>' + esc(k.recog) + '</p></div>'
+    + '<div class="callout warn">' + ui("warn") + '<div><h3>Point de vigilance</h3><p>' + esc(k.trap) + '</p></div></div>'
+    + '<div class="callout reflex">' + ui("bulb") + '<div><h3>Question réflexe</h3><p>' + esc(k.reflex) + '</p></div></div>'
+    + (conf ? '<div class="blk"><h2>À ne pas confondre avec</h2><div class="chips">' + conf + '</div></div>' : '')
+    + '<button class="btn' + (seen ? ' on' : '') + '" id="mark">' + (seen ? '✓ Fiche comprise' : 'Je maîtrise cette fiche') + '</button>'
+    + '</div>';
+  byId("back").addEventListener("click", function () { if (from === "classer") { S.tab = "classer"; S.sub = null; render(); } else { go("fiches"); } });
+  byId("mark").addEventListener("click", function () { store.seen[id] = !store.seen[id]; save(); var y = window.scrollY; renderKpi(id, from); try { window.scrollTo(0, y); } catch (e) {} });
+  Array.prototype.forEach.call(main.querySelectorAll("[data-kpi]"), function (b) {
+    b.addEventListener("click", function () { S.tab = "fiches"; S.sub = { t: "kpi", id: b.getAttribute("data-kpi") }; render(); });
+  });
+}
+
+/* ---------- Classer ---------- */
+function renderClasser() {
+  var c = S.cls;
+  if (c.result) { return renderClassResult(); }
+  var nodeId = c.stack[c.stack.length - 1], node = WL.TREE[nodeId];
+  var crumbs = c.labels.length ? '<div class="crumbs">' + c.labels.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join("") + '</div>' : '';
+  var opts = node.opts.map(function (o, i) {
+    return '<button class="choice" data-i="' + i + '"><span>' + esc(o[0]) + '</span>' + ui("chev") + '</button>';
+  }).join("");
+  var surv = c.stack.length === 1
+    ? '<h2 class="sec">Tableau de survie</h2><p class="hint" style="margin:-4px 0 10px">Si je vois… je pense à…</p><ul class="list surv">'
+      + WL.SURVIVAL.map(function (s) { var k = WL.KPI[s[1]]; return '<li><button class="item" data-kpi="' + k.id + '"><span><span class="t">' + esc(s[0]) + '</span><span class="s" style="display:block">' + esc(k.en) + '</span></span>' + WL.chip(k.unit) + ui("chev", "go") + '</button></li>'; }).join("")
+      + '</ul>' : '';
+  main.innerHTML =
+    '<div class="page"><h1>Classer une donnée</h1><p class="sub">Réponds à quelques questions : l\'appli te donne le bon KPI et son unité.</p></div>'
+    + crumbs
+    + '<div class="stack" style="margin-top:' + (c.labels.length ? '0' : '16px') + '"><h2 class="q-title">' + esc(node.q) + '</h2>' + '<div class="gap-s">' + opts + '</div>'
+    + (c.stack.length > 1 ? '<button class="btn ghost" id="back1">← Question précédente</button>' : '') + '</div>'
+    + surv;
+  Array.prototype.forEach.call(main.querySelectorAll(".choice"), function (b) {
+    b.addEventListener("click", function () {
+      var o = node.opts[parseInt(b.getAttribute("data-i"), 10)];
+      c.labels.push(o[0]);
+      if (typeof o[1] === "string") { c.stack.push(o[1]); } else { c.result = o[1]; }
+      renderClasser(); toTop();
+    });
+  });
+  var bk = byId("back1"); if (bk) { bk.addEventListener("click", function () { c.stack.pop(); c.labels.pop(); renderClasser(); }); }
+  Array.prototype.forEach.call(main.querySelectorAll("[data-kpi]"), function (b) {
+    b.addEventListener("click", function () { S.tab = "fiches"; S.sub = { t: "kpi", id: b.getAttribute("data-kpi"), from: "classer" }; renderKpi(b.getAttribute("data-kpi"), "classer"); drawTabs(); toTop(); });
+  });
+}
+function renderClassResult() {
+  var c = S.cls, r = c.result, k = WL.KPI[r.kpi];
+  main.innerHTML =
+    '<div class="page"><h1>Classer une donnée</h1></div>'
+    + '<div class="crumbs">' + c.labels.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join("") + '</div>'
+    + '<div class="stack"><div class="result u-' + k.unit + '">' + WL.ico(k.icon, k.unit)
+    + '<p class="mono hint">Tu saisis dans le KPI</p><h2>' + esc(k.en) + '</h2><p>' + esc(k.fr) + '</p>'
+    + '<p>Unité attendue : ' + WL.chip(k.unit, true) + '</p></div>'
+    + (r.note ? '<div class="callout warn">' + ui("warn") + '<div><h3>À retenir</h3><p>' + esc(r.note) + '</p></div></div>' : '')
+    + '<div class="callout reflex">' + ui("bulb") + '<div><h3>Question réflexe</h3><p>' + esc(k.reflex) + '</p></div></div>'
+    + '<button class="btn" id="open">Ouvrir la fiche</button><button class="btn ghost" id="again">Classer une autre donnée</button></div>';
+  byId("open").addEventListener("click", function () { S.tab = "fiches"; S.sub = { t: "kpi", id: k.id }; renderKpi(k.id, "classer"); drawTabs(); toTop(); });
+  byId("again").addEventListener("click", function () { S.cls = { stack: ["start"], labels: [], result: null }; renderClasser(); toTop(); });
+}
+
+/* ---------- Quiz ---------- */
+function renderQuizHome() {
+  cleanMissed();
+  var modes = WL.MODES.map(function (m) {
+    var n = m.id === "mix" ? 10 : WL.Q.filter(function (q) { return m.id === "unit" ? q.th === "unit" : q.th === m.id; }).length;
+    var b = store.best[m.id];
+    return '<button class="mode" data-mode="' + m.id + '"><span class="num">' + ui(m.icon) + '</span><span><span class="t">' + m.name + '</span><br><span class="s">' + m.sub + ' · ' + n + ' questions</span></span>'
+      + '<span class="b">' + (b ? b.s + '/' + b.t : '') + '</span></button>';
+  }).join("");
+  main.innerHTML =
+    '<div class="page"><h1>Quiz</h1><p class="sub">' + WL.Q.length + ' questions pour fixer les réflexes. Chaque erreur est mise de côté pour être revue.</p></div>'
+    + '<div class="stack" style="margin-top:16px">' + modes
+    + '<button class="mode" id="review"' + (store.missed.length ? '' : ' disabled style="opacity:.55"') + '><span class="num">' + ui("warn") + '</span><span><span class="t">À revoir</span><br><span class="s">Tes erreurs, jusqu\'à ce qu\'elles soient justes</span></span><span class="b">' + store.missed.length + '</span></button></div>';
+  Array.prototype.forEach.call(main.querySelectorAll("[data-mode]"), function (b) {
+    b.addEventListener("click", function () { startMode(b.getAttribute("data-mode")); });
+  });
+  byId("review").addEventListener("click", function () { if (store.missed.length) { start("review", "À revoir", shuffle(store.missed)); } });
+}
+function pool(mode) {
+  if (mode === "mix") { return shuffle(WL.Q.map(function (q) { return q.id; })).slice(0, 10); }
+  return shuffle(WL.Q.filter(function (q) { return q.th === mode; }).map(function (q) { return q.id; }));
+}
+function startMode(mode) {
+  var m = WL.MODES.filter(function (x) { return x.id === mode; })[0];
+  start(mode, m.name, pool(mode));
+}
+function start(key, label, ids) {
+  sess = { key: key, label: label, ids: ids, i: 0, score: 0, wrong: [], answered: false, order: null, done: false };
+  renderQuestion();
+}
+function qDoc(q) {
+  if (!q.d) { return ""; }
+  return '<div class="doc sm"><header><span>' + esc(q.d[0]) + '</span><em>exemple fictif</em></header>'
+    + q.d.slice(1).map(function (l) { return '<div class="drow single"><span>' + esc(l) + '</span></div>'; }).join("") + '<div class="dpad"></div></div>';
+}
+function renderQuestion() {
+  var s = sess, q = QBY[s.ids[s.i]]; toTop(); drawTabs();
+  if (!s.order) { var idx = q.o.map(function (_, i) { return i; }); s.order = q.fix ? idx : shuffle(idx); }
+  var opts = s.order.map(function (oi, pos) {
+    return '<li><button class="opt" data-oi="' + oi + '"><span class="ltr">' + "ABCDE"[pos] + '</span><span>' + esc(q.o[oi]) + '</span><span class="mark" aria-hidden="true"></span></button></li>';
+  }).join("");
+  var n = s.ids.length;
+  main.innerHTML =
+    '<div class="qtop"><button class="back" id="quit" aria-label="Quitter le quiz">' + ui("back") + 'Quitter</button><span class="count">' + pad(s.i + 1) + ' / ' + pad(n) + '</span></div>'
+    + '<div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + s.i + '"><i style="width:' + Math.round(100 * s.i / n) + '%"></i></div>'
+    + (q.ctx ? '<p class="qctx">' + esc(q.ctx) + '</p>' : '<p class="qctx">' + esc(s.label) + '</p>')
+    + qDoc(q)
+    + '<h2 class="q" id="qtext" tabindex="-1">' + esc(q.q) + '</h2>'
+    + '<ul class="opts">' + opts + '</ul><div id="fb"></div><div class="dock" id="dock" hidden></div>';
+  byId("quit").addEventListener("click", function () { sess = null; render(); });
+  Array.prototype.forEach.call(main.querySelectorAll(".opt"), function (b) {
+    b.addEventListener("click", function () { answer(parseInt(b.getAttribute("data-oi"), 10)); });
+  });
+  try { byId("qtext").focus({ preventScroll: true }); } catch (e) {}
+}
+function answer(oi) {
+  var s = sess; if (s.answered) { return; }
+  s.answered = true;
+  var q = QBY[s.ids[s.i]], ok = oi === q.a;
+  if (ok) { s.score++; store.missed = store.missed.filter(function (id) { return id !== q.id; }); buzz(15); }
+  else { s.wrong.push(q.id); if (store.missed.indexOf(q.id) < 0) { store.missed.push(q.id); } buzz([30, 40, 30]); }
+  save();
+  Array.prototype.forEach.call(main.querySelectorAll(".opt"), function (b) {
+    var v = parseInt(b.getAttribute("data-oi"), 10), m = b.querySelector(".mark");
+    b.setAttribute("aria-disabled", "true");
+    if (v === q.a) { b.classList.add("ok"); m.textContent = "✓"; }
+    else if (v === oi) { b.classList.add("ko"); m.textContent = "✗"; }
+    else { b.classList.add("dim"); }
+  });
+  byId("fb").innerHTML = '<div class="fb' + (ok ? '' : ' ko') + '" role="status"><h3>' + (ok ? 'Juste.' : 'Raté.') + '</h3><p>' + esc(q.e) + '</p></div>';
+  var last = s.i === s.ids.length - 1, dock = byId("dock");
+  dock.hidden = false;
+  dock.innerHTML = '<button class="btn" id="next">' + (last ? 'Voir le résultat' : 'Question suivante') + ' →</button>';
+  var nb = byId("next"); nb.addEventListener("click", nextQ);
+  try { nb.scrollIntoView({ block: "nearest", behavior: "smooth" }); nb.focus({ preventScroll: true }); } catch (e) {}
+}
+function nextQ() {
+  var s = sess; s.i++; s.answered = false; s.order = null;
+  if (s.i >= s.ids.length) { finish(); } else { renderQuestion(); }
+}
+function finish() {
+  var s = sess; s.done = true;
+  var n = s.ids.length;
+  if (s.key !== "review") { var b = store.best[s.key]; if (!b || s.score / n > b.s / b.t) { store.best[s.key] = { s: s.score, t: n }; } }
+  save(); renderResult();
+}
+function renderResult() {
+  var s = sess, n = s.ids.length; toTop(); drawTabs();
+  var r = s.score / n, verdict = r >= 0.9 ? "Solide." : r >= 0.7 ? "Bon niveau." : r >= 0.5 ? "À consolider." : "À reprendre.";
+  var wrong = s.wrong.length ? '<h2 class="sec" style="margin-top:24px">À retenir</h2><ul class="miss">'
+    + s.wrong.map(function (id) { var q = QBY[id]; return '<li><b>' + esc(q.q) + '</b><span>' + esc(q.o[q.a]) + '</span><p class="hint" style="margin-top:4px">' + esc(q.e) + '</p></li>'; }).join("") + '</ul>' : '';
+  main.innerHTML =
+    '<p class="qctx" style="margin-top:10px">' + esc(s.label) + '</p><div class="big">' + s.score + '<small> / ' + n + '</small></div><p class="verdict">' + verdict + '</p>'
+    + wrong
+    + '<div class="stack" style="margin-top:22px">'
+    + (s.wrong.length ? '<button class="btn" id="redo">Refaire les erreurs (' + s.wrong.length + ')</button>' : '')
+    + '<button class="btn' + (s.wrong.length ? ' ghost' : '') + '" id="again">Rejouer</button><button class="btn ghost" id="home">Retour aux quiz</button></div>';
+  var rd = byId("redo"); if (rd) { rd.addEventListener("click", function () { start("review", "À revoir", shuffle(s.wrong)); }); }
+  byId("again").addEventListener("click", function () {
+    if (s.key === "review") { cleanMissed(); if (store.missed.length) { start("review", "À revoir", shuffle(store.missed)); } else { sess = null; render(); } }
+    else { startMode(s.key); }
+  });
+  byId("home").addEventListener("click", function () { sess = null; render(); });
+}
+
+/* ---------- Glossaire ---------- */
+function glossRows(qs) {
+  var q = qs.trim().toLowerCase();
+  var rows = WL.GLOSS.filter(function (g) { return !q || g[0].toLowerCase().indexOf(q) >= 0 || g[1].toLowerCase().indexOf(q) >= 0; });
+  if (!rows.length) { return '<div class="empty">Aucun terme ne correspond.</div>'; }
+  return rows.map(function (g) { return '<div class="g"><b>' + esc(g[0]) + '</b><span>' + esc(g[1]) + '</span></div>'; }).join("");
+}
+function renderGloss() {
+  main.innerHTML =
+    '<div class="page"><h1>Glossaire</h1><p class="sub">' + WL.GLOSS.length + ' termes anglais, avec leur traduction française.</p></div>'
+    + '<div class="search"><label>' + ui("search") + '<input id="gq" type="search" inputmode="search" placeholder="Chercher : petrol, essence, steam…" autocomplete="off" aria-label="Chercher un terme"></label></div>'
+    + '<div class="list" id="glist" style="margin-top:6px">' + glossRows("") + '</div>';
+  byId("gq").addEventListener("input", function () { byId("glist").innerHTML = glossRows(this.value); });
+}
+
+/* ---------- démarrage ---------- */
+var hot = window.claude && window.claude.hot;
+function boot(data) {
+  if (data && data.S && typeof data.S.tab === "string") {
+    S.tab = data.S.tab; S.sub = data.S.sub || null; S.filter = data.S.filter || "all";
+    if (data.S.cls && Array.isArray(data.S.cls.stack)) { S.cls = data.S.cls; }
+    var d = data.sess;
+    if (d && Array.isArray(d.ids) && d.ids.every(function (id) { return QBY[id]; })) {
+      sess = d;
+      if (!sess.done && sess.answered) { sess.i++; sess.answered = false; sess.order = null; if (sess.i >= sess.ids.length) { finish(); return; } }
+    }
+    if (S.sub && S.sub.t === "kpi" && !WL.KPI[S.sub.id]) { S.sub = null; }
+    if (S.sub && S.sub.t === "lesson" && !WL.LESSONS.some(function (l) { return l.id === S.sub.id; })) { S.sub = null; }
+  }
+  render();
+}
+if (hot && typeof hot.snapshot === "function") { hot.snapshot(function () { return { S: S, sess: sess }; }); }
+if (hot && typeof hot.ready === "function") { hot.ready(boot); } else { boot((hot && hot.data) || {}); }
+
+})(window.WL);
+
+</script>
+<script>
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
